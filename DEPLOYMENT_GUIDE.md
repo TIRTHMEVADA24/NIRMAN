@@ -97,11 +97,33 @@ In your GitHub repository (`https://github.com/TIRTHMEVADA24/Nirmaan`):
 
 ---
 
-## 🐳 Step 6: Docker Container Hosting (Optional Alternative)
+## ⚡ Step 6: Deploy Frontend to Vercel (Recommended 1-Click)
 
-You can also run both Frontend & Backend anywhere using Docker Compose:
-```bash
-docker compose up --build
-```
-- **Frontend**: `http://localhost:80`
-- **Backend API**: `http://localhost:5000`
+A pre-configured [`vercel.json`](file:///c:/Users/RAHUL/OneDrive/Documents/NIRMAN/vercel.json) has been added to root with automatic SPA routing rewrites.
+
+### Steps to Deploy on Vercel:
+1. Log in to [Vercel](https://vercel.com) using your GitHub account (`TIRTHMEVADA24`).
+2. Click **Add New...** -> **Project**.
+3. Import the repository: **`TIRTHMEVADA24/NIRMAN`**.
+4. In the Project Configuration:
+   - **Framework Preset**: Vite
+   - **Root Directory**: `./` (or leave default, `vercel.json` automatically builds `frontend`)
+5. Under **Environment Variables**, add:
+   | Variable | Value |
+   | :--- | :--- |
+   | `VITE_API_BASE_URL` | Your Render / Railway backend URL (e.g. `https://nirmaan-backend.onrender.com/api/v1`) |
+   | `VITE_SUPABASE_URL` | `https://dylqlvwshrywdxzhdobe.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5bHFsdndzaHJ5d2R4emhkb2JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTgwMjUsImV4cCI6MjEwODIzNDAyNX0.RFPXrFIJRXXyHxeqIklttjnnUD4dqrYq4HWr0JlvqhM` |
+6. Click **Deploy**. Vercel will build and assign you a fast global edge domain (e.g. `https://nirman.vercel.app`).
+
+---
+
+## 🔑 Supabase Live API Reference Summary (Project: NIRMAN)
+
+- **Supabase Project URL**: `https://dylqlvwshrywdxzhdobe.supabase.co`
+- **Publishable / Anon Key**:
+  ```text
+  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5bHFsdndzaHJ5d2R4emhkb2JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTgwMjUsImV4cCI6MjEwODIzNDAyNX0.RFPXrFIJRXXyHxeqIklttjnnUD4dqrYq4HWr0JlvqhM
+  ```
+- **PostgreSQL Pooler Host**: `aws-0-ap-northeast-1.pooler.supabase.com:6543`
+- **PostgreSQL Direct Host**: `db.dylqlvwshrywdxzhdobe.supabase.co:5432`
