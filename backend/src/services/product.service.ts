@@ -81,26 +81,52 @@ export class ProductService {
       if (filters.sort === 'MOQ: Low to High') orderBy = { minOrderQuantity: 'asc' };
     }
 
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where: whereClause,
-        skip,
-        take: limit,
-        orderBy,
-        include: {
-          category: true,
-          manufacturer: {
-            select: {
-              id: true,
-              name: true,
-              companyName: true,
-              manufacturerProfile: true,
+    let products: any[] = [];
+    let total = 0;
+
+    try {
+      const [dbProducts, dbTotal] = await Promise.all([
+        prisma.product.findMany({
+          where: whereClause,
+          skip,
+          take: limit,
+          orderBy,
+          include: {
+            category: true,
+            manufacturer: {
+              select: {
+                id: true,
+                name: true,
+                companyName: true,
+                manufacturerProfile: true,
+              },
             },
           },
-        },
-      }),
-      prisma.product.count({ where: whereClause }),
-    ]);
+        }),
+        prisma.product.count({ where: whereClause }),
+      ]);
+      products = dbProducts;
+      total = dbTotal;
+    } catch (dbError) {
+      console.warn('⚠️ Database query via Prisma failed, using Supabase REST gateway:', (dbError as Error).message);
+      
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://dylqlvwshrywdxzhdobe.supabase.co';
+      const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5bHFsdndzaHJ5d2R4emhkb2JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTgwMjUsImV4cCI6MjEwODIzNDAyNX0.RFPXrFIJRXXyHxeqIklttjnnUD4dqrYq4HWr0JlvqhM';
+      
+      const res = await fetch(`${supabaseUrl}/rest/v1/products?select=*,category:categories(*),manufacturer:users(id,name,companyName,manufacturerProfile:manufacturer_profiles(*))`, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`
+        }
+      });
+      if (res.ok) {
+        const rawProducts: any = await res.json();
+        products = rawProducts;
+        total = rawProducts.length;
+      } else {
+        throw dbError;
+      }
+    }
 
     return {
       products,
