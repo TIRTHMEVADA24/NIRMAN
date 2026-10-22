@@ -48,7 +48,33 @@ api.interceptors.response.use(
           };
         }
       } catch (fallbackError) {
-        console.warn('Supabase fallback also failed:', fallbackError);
+        console.warn('Supabase products fallback failed:', fallbackError);
+      }
+    }
+
+    // Fallback: If GET /manufacturers fails on backend, fetch directly from Supabase REST
+    if (error.config && error.config.method === 'get' && error.config.url?.startsWith('/manufacturers')) {
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://dylqlvwshrywdxzhdobe.supabase.co';
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5bHFsdndzaHJ5d2R4emhkb2JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTgwMjUsImV4cCI6MjEwODIzNDAyNX0.RFPXrFIJRXXyHxeqIklttjnnUD4dqrYq4HWr0JlvqhM';
+        
+        const fallbackRes = await axios.get(`${supabaseUrl}/rest/v1/manufacturer_profiles?select=*,user:users(id,name,email,phone,companyName)`, {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`
+          }
+        });
+
+        if (fallbackRes.data && Array.isArray(fallbackRes.data)) {
+          return {
+            data: {
+              success: true,
+              data: fallbackRes.data
+            }
+          };
+        }
+      } catch (fallbackError) {
+        console.warn('Supabase manufacturers fallback failed:', fallbackError);
       }
     }
 
