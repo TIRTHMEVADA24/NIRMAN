@@ -196,18 +196,49 @@ api.interceptors.response.use(
           }
         }
 
-        // 4. Fallback: GET /products
+        // 4. Fallback: GET /products/:id or GET /products
         if (url.includes('/products') && method === 'get') {
-          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/products?select=*,category:categories(*),manufacturer:users(id,name,companyName,manufacturerProfile:manufacturer_profiles(*))`, {
-            headers: supabaseHeaders
-          });
+          // Check for single product query: /products/:id
+          const match = url.match(/\/products\/([^/?#]+)/);
+          const singleId = match ? match[1] : null;
+
+          if (singleId && singleId !== 'products') {
+            const singleRes = await axios.get(
+              `${SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(singleId)}&select=*,category:categories(*),manufacturer:users(id,name,companyName,manufacturerProfile:manufacturer_profiles(*))`,
+              { headers: supabaseHeaders }
+            );
+            if (singleRes.data && singleRes.data.length > 0) {
+              const p = singleRes.data[0];
+              if (p.manufacturer && Array.isArray(p.manufacturer.manufacturerProfile)) {
+                p.manufacturer.manufacturerProfile = p.manufacturer.manufacturerProfile[0] || null;
+              }
+              return {
+                data: {
+                  success: true,
+                  data: p
+                }
+              };
+            }
+          }
+
+          // Otherwise return product list
+          const fallbackRes = await axios.get(
+            `${SUPABASE_URL}/rest/v1/products?select=*,category:categories(*),manufacturer:users(id,name,companyName,manufacturerProfile:manufacturer_profiles(*))`,
+            { headers: supabaseHeaders }
+          );
           if (fallbackRes.data && Array.isArray(fallbackRes.data)) {
+            const products = fallbackRes.data.map((p: any) => {
+              if (p.manufacturer && Array.isArray(p.manufacturer.manufacturerProfile)) {
+                p.manufacturer.manufacturerProfile = p.manufacturer.manufacturerProfile[0] || null;
+              }
+              return p;
+            });
             return {
               data: {
                 success: true,
                 data: {
-                  products: fallbackRes.data,
-                  pagination: { total: fallbackRes.data.length, page: 1, limit: 50, pages: 1 }
+                  products,
+                  pagination: { total: products.length, page: 1, limit: 50, pages: 1 }
                 }
               }
             };
