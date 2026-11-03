@@ -4,7 +4,7 @@ import {
   ArrowRight, Check, ChevronRight, CreditCard, FileText, Package,
   Settings, ShieldCheck, Star, Wallet,
 } from "lucide-react";
-import { DashboardNavbar } from "../components/Navbar";
+import Navbar, { DashboardNavbar } from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { Badge, Button, Card, Input, SectionHeader, StatusBadge, VerifiedBadge } from "../components/ui";
 import { categories, packagingProducts } from "../data/mock";
@@ -28,15 +28,45 @@ function BuyerShell({ children, wide = false }: { children: React.ReactNode; wid
 
 export function CategoriesPage() {
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      <DashboardNavbar userType="buyer" />
-      <main className="max-w-6xl mx-auto p-4 sm:p-8">
+    <div className="min-h-screen bg-surface">
+      <Navbar />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 mt-16">
         <div className="flex items-end justify-between gap-4 mb-8">
-          <div><p className="text-xs font-bold uppercase tracking-widest text-[#4F46E5] mb-2">Explore the marketplace</p><h1 className="font-display text-3xl font-bold text-[#111827]">Find your next product category</h1><p className="text-[#6B7280] mt-2">Start with a category, then compare verified manufacturers and low minimum orders.</p></div>
-          <Link to="/discover"><Button variant="outline" className="hidden sm:flex">Browse all products <ArrowRight size={15} /></Button></Link>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-brand-600 mb-2">Explore the marketplace</p>
+            <h1 className="font-display text-3xl font-extrabold text-ink">Find your next product category</h1>
+            <p className="text-ink-3 mt-2 font-medium">Start with a category, then compare verified manufacturers and low minimum orders.</p>
+          </div>
+          <Link to="/discover">
+            <Button variant="outline" className="hidden sm:flex">
+              Browse all products <ArrowRight size={15} />
+            </Button>
+          </Link>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {categories.map((category) => <Link key={category.id} to={`/discover?category=${category.id}`} className="group bg-white rounded-xl border border-[#E5E7EB] overflow-hidden hover:border-[#4F46E5] transition-colors"><div className="aspect-[4/3] overflow-hidden bg-[#F3F4F6]"><img src={category.image} alt={category.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div><div className="p-4"><div className="flex items-center justify-between"><h2 className="font-semibold text-[#111827]">{category.name}</h2><ChevronRight size={16} className="text-[#9CA3AF]" /></div><p className="text-sm text-[#6B7280] mt-1">{category.suppliers} verified suppliers</p><span className="text-xs font-semibold text-[#4F46E5] inline-block mt-4">Explore category</span></div></Link>)}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {categories.map((category) => (
+            <Link
+              key={category.id}
+              to={`/discover?category=${category.id}`}
+              className="group bg-white rounded-2xl border border-border overflow-hidden hover:border-brand-500 hover:shadow-lg transition-all duration-300"
+            >
+              <div className="aspect-[4/3] overflow-hidden bg-muted">
+                <img
+                  src={category.image}
+                  alt={category.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+              </div>
+              <div className="p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-bold text-ink text-base group-hover:text-brand-600 transition-colors">{category.name}</h2>
+                  <ChevronRight size={16} className="text-ink-3 group-hover:translate-x-1 group-hover:text-brand-600 transition-all" />
+                </div>
+                <p className="text-sm text-ink-3 mt-1 font-medium">{category.suppliers} verified suppliers</p>
+                <span className="text-xs font-bold text-brand-600 inline-block mt-4 group-hover:underline">Explore category &rarr;</span>
+              </div>
+            </Link>
+          ))}
         </div>
       </main>
     </div>

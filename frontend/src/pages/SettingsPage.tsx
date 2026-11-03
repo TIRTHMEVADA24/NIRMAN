@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { DashboardNavbar } from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { Card, Button, Input } from "../components/ui";
-import { Settings, Save, Loader2, User } from "lucide-react";
+import { Settings, Save, Loader2, User, LogOut } from "lucide-react";
 import api from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { motion } from "framer-motion";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
@@ -110,9 +110,18 @@ export default function SettingsPage() {
         <Sidebar type={user?.role?.toLowerCase() || 'buyer'} />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h1 className="font-display text-2xl font-bold text-ink">Settings</h1>
-              <p className="text-sm text-ink-3 mt-1">Manage your profile, business information, and preferences.</p>
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <h1 className="font-display text-2xl font-bold text-ink">Settings</h1>
+                <p className="text-sm text-ink-3 mt-1">Manage your profile, business information, and preferences.</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={logout}
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-semibold"
+              >
+                <LogOut size={16} className="mr-2" /> Log Out
+              </Button>
             </div>
             
             <div className="grid md:grid-cols-[220px_1fr] gap-6">
@@ -127,6 +136,14 @@ export default function SettingsPage() {
                     {item}
                   </button>
                 ))}
+                <div className="border-t border-border mt-2 pt-2">
+                  <button
+                    onClick={logout}
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium cursor-pointer"
+                  >
+                    <LogOut size={15} /> Log Out
+                  </button>
+                </div>
               </Card>
 
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>

@@ -291,7 +291,7 @@ function ProductCard({ product, view }: { product: any; view: "grid" | "list" })
     return (
       <Card className="flex gap-5 p-5 hover:border-brand-300 hover:shadow-lg transition-all duration-300 cursor-pointer group" onClick={() => navigate(`/product/${product.id}`)}>
         <div className="w-40 h-40 rounded-xl bg-surface overflow-hidden shrink-0 relative">
-          <img src={image} alt={product.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out" />
+          <img src={image} alt={product.title} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80&w=500"; }} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         </div>
         <div className="flex-1 min-w-0 flex flex-col">
@@ -326,7 +326,7 @@ function ProductCard({ product, view }: { product: any; view: "grid" | "list" })
   return (
     <Card className="overflow-hidden hover:border-brand-300 hover:shadow-xl transition-all duration-300 cursor-pointer group h-full flex flex-col" onClick={() => navigate(`/product/${product.id}`)}>
       <div className="aspect-[4/3] bg-surface overflow-hidden relative">
-        <img src={image} alt={product.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
+        <img src={image} alt={product.title} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80&w=500"; }} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         {isVerified && (
           <div className="absolute top-3 left-3">

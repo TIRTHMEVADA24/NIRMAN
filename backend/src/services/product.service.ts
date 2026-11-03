@@ -9,11 +9,11 @@ export class ProductService {
     return prisma.product.create({
       data: {
         title: input.title,
-        description: input.description,
+        description: input.description || '',
         price: input.price,
         minOrderQuantity: input.minOrderQuantity,
-        unit: input.unit,
-        images: input.images ? JSON.stringify(input.images) : undefined,
+        unit: input.unit || 'piece',
+        images: input.images ? JSON.stringify(input.images) : '[]',
         categoryId: input.categoryId,
         manufacturerId,
       },

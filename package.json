@@ -1,0 +1,13 @@
+{
+  "name": "nirmaan-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nirmaan B2B Sourcing and Manufacturing Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend"
+  }
+}

@@ -47,3 +47,10 @@ Thumbs.db
 /.plugins/
 /.opencode-skills/
 supabase/.temp/
+
+# Test screenshots
+screenshots_test/
+screenshots_mfr/
+
+# Local demo videos/recordings
+nirmaan_project_demo.*

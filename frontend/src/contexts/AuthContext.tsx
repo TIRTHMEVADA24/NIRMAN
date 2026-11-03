@@ -10,6 +10,8 @@ export interface User {
   role: UserRole;
   companyName?: string;
   isVerified?: boolean;
+  manufacturerProfile?: any;
+  buyerProfile?: any;
 }
 
 interface AuthContextType {
@@ -17,6 +19,13 @@ interface AuthContextType {
   loading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+}
+
+export function getHomePath(user: { role?: string } | null | undefined): string {
+  if (!user) return "/";
+  if (user.role === "MANUFACTURER") return "/mfr/dashboard";
+  if (user.role === "ADMIN") return "/admin";
+  return "/dashboard";
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

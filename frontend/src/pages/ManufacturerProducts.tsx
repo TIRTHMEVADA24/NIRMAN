@@ -1,12 +1,20 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit2, Trash2, Package, X, Image as ImageIcon } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, X, Image as ImageIcon, Upload } from "lucide-react";
 import { DashboardNavbar } from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { Card, Button, Badge } from "../components/ui";
 import api from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
-import { parseImages } from "../utils/image";
+import { parseImages, resizeImageFile } from "../utils/image";
+
+const SAMPLE_PRESETS = [
+  { label: "Jewelry", url: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&q=80&w=500" },
+  { label: "Earrings", url: "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&q=80&w=500" },
+  { label: "Apparel", url: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=500" },
+  { label: "Packaging", url: "https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&q=80&w=500" },
+  { label: "Cosmetics", url: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&q=80&w=500" },
+];
 
 export default function ManufacturerProducts() {
   const { user } = useAuth();
@@ -23,7 +31,11 @@ export default function ManufacturerProducts() {
   const [price, setPrice] = useState("");
   const [minOrderQuantity, setMinOrderQuantity] = useState("");
   const [unit, setUnit] = useState("piece");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageInputMode, setImageInputMode] = useState<"upload" | "url" | "presets">("upload");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState("");
 
   useEffect(() => {
     fetchProducts();
@@ -33,9 +45,6 @@ export default function ManufacturerProducts() {
     try {
       const res = await api.get('/products');
       if (res.data.success) {
-        // Filter products to only show current manufacturer's products
-        // In a real app, you might have a specific route like GET /mfr/products
-        // or the backend filters it by default. For now, we filter on frontend just in case.
         const myProducts = res.data.data.products.filter((p: any) => p.manufacturerId === user?.id);
         setProducts(myProducts);
       }
@@ -46,6 +55,28 @@ export default function ManufacturerProducts() {
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setModalError("Please select a valid image file (PNG, JPG, WEBP).");
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setModalError("");
+      const compressedDataUrl = await resizeImageFile(file, 800, 800, 0.85);
+      setImageUrl(compressedDataUrl);
+    } catch (err) {
+      console.error("Failed to process image", err);
+      setModalError("Failed to process image file. Please try another image.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const openAddModal = () => {
     setEditingProduct(null);
     setTitle("");
@@ -53,16 +84,22 @@ export default function ManufacturerProducts() {
     setPrice("");
     setMinOrderQuantity("");
     setUnit("piece");
+    setImageUrl("");
+    setImageInputMode("upload");
+    setModalError("");
     setIsModalOpen(true);
   };
 
   const openEditModal = (p: any) => {
     setEditingProduct(p);
     setTitle(p.title);
-    setDescription(p.description);
+    setDescription(p.description || "");
     setPrice(p.price.toString());
     setMinOrderQuantity(p.minOrderQuantity.toString());
-    setUnit(p.unit);
+    setUnit(p.unit || "piece");
+    setImageUrl(parseImages(p.images, ""));
+    setImageInputMode(p.images ? "url" : "upload");
+    setModalError("");
     setIsModalOpen(true);
   };
 
@@ -78,15 +115,31 @@ export default function ManufacturerProducts() {
   };
 
   const handleSave = async () => {
-    if (!title || !price || !minOrderQuantity) return;
-    
+    setModalError("");
+
+    if (!title.trim()) {
+      setModalError("Please enter a product title.");
+      return;
+    }
+    const parsedPrice = parseFloat(price);
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      setModalError("Please enter a valid price greater than 0.");
+      return;
+    }
+    const parsedMoq = parseInt(minOrderQuantity, 10);
+    if (isNaN(parsedMoq) || parsedMoq <= 0) {
+      setModalError("Please enter a minimum order quantity (MOQ) of at least 1.");
+      return;
+    }
+
     setSaving(true);
     const payload = {
-      title,
-      description,
-      price: parseFloat(price),
-      minOrderQuantity: parseInt(minOrderQuantity),
-      unit
+      title: title.trim(),
+      description: description.trim(),
+      price: parsedPrice,
+      minOrderQuantity: parsedMoq,
+      unit: unit.trim() || "piece",
+      images: imageUrl.trim() ? [imageUrl.trim()] : []
     };
 
     try {
@@ -97,9 +150,15 @@ export default function ManufacturerProducts() {
       }
       setIsModalOpen(false);
       fetchProducts(); // refresh
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save product", err);
-      alert("Failed to save product.");
+      const errorMsg =
+        err.response?.data?.details?.map((d: any) => d.message).join(". ") ||
+        err.response?.data?.message ||
+        (err.code === "ERR_NETWORK" || !err.response
+          ? "Cannot connect to backend server. Please make sure the backend is running."
+          : "Failed to save product. Please check your inputs.");
+      setModalError(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -212,12 +271,19 @@ export default function ManufacturerProducts() {
                 </button>
               </div>
 
+              {modalError && (
+                <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm flex items-center justify-between">
+                  <span>{modalError}</span>
+                  <button type="button" onClick={() => setModalError("")} className="text-red-400 hover:text-red-700 font-bold ml-2">×</button>
+                </div>
+              )}
+
               <div className="p-6 overflow-y-auto max-h-[70vh] flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-semibold text-ink-2">Product Title *</label>
                   <input 
                     type="text" 
-                    value={title} onChange={(e) => setTitle(e.target.value)}
+                    value={title} onChange={(e) => { setModalError(""); setTitle(e.target.value); }}
                     className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
                     placeholder="e.g. Premium Cotton T-Shirt"
                   />
@@ -226,11 +292,111 @@ export default function ManufacturerProducts() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-semibold text-ink-2">Description</label>
                   <textarea 
-                    value={description} onChange={(e) => setDescription(e.target.value)}
+                    value={description} onChange={(e) => { setModalError(""); setDescription(e.target.value); }}
                     className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all resize-none"
                     placeholder="Describe materials, sizing, etc."
                     rows={4}
                   />
+                </div>
+
+                {/* Product Image Section */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold text-ink-2">Product Image</label>
+                    <div className="flex text-xs bg-[#F3F4F6] p-0.5 rounded-lg border border-border">
+                      <button
+                        type="button"
+                        onClick={() => setImageInputMode("upload")}
+                        className={`px-2.5 py-1 rounded-md transition-all ${
+                          imageInputMode === "upload" ? "bg-white text-ink font-semibold shadow-xs" : "text-ink-3 hover:text-ink"
+                        }`}
+                      >
+                        Upload
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageInputMode("url")}
+                        className={`px-2.5 py-1 rounded-md transition-all ${
+                          imageInputMode === "url" ? "bg-white text-ink font-semibold shadow-xs" : "text-ink-3 hover:text-ink"
+                        }`}
+                      >
+                        Web Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageInputMode("presets")}
+                        className={`px-2.5 py-1 rounded-md transition-all ${
+                          imageInputMode === "presets" ? "bg-white text-ink font-semibold shadow-xs" : "text-ink-3 hover:text-ink"
+                        }`}
+                      >
+                        Presets
+                      </button>
+                    </div>
+                  </div>
+
+                  {imageUrl ? (
+                    <div className="relative rounded-xl border border-border overflow-hidden bg-surface-2 h-44 group">
+                      <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <label className="cursor-pointer bg-white text-ink text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/90 transition-all flex items-center gap-1.5 shadow-md">
+                          <Upload size={14} /> Replace
+                          <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl("")}
+                          className="bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-600 transition-all flex items-center gap-1.5 shadow-md"
+                        >
+                          <Trash2 size={14} /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {imageInputMode === "upload" && (
+                        <label className="border-2 border-dashed border-border hover:border-brand-500 hover:bg-brand-50/20 transition-all rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer text-center group">
+                          <div className="w-10 h-10 rounded-full bg-brand-50 flex items-center justify-center text-brand-600 group-hover:scale-110 transition-transform mb-2">
+                            {uploadingImage ? (
+                              <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Upload size={20} />
+                            )}
+                          </div>
+                          <p className="text-sm font-medium text-ink">
+                            {uploadingImage ? "Optimizing image..." : "Click or drag to upload product photo"}
+                          </p>
+                          <p className="text-xs text-ink-3 mt-0.5">PNG, JPG, or WEBP (auto-compressed)</p>
+                          <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                        </label>
+                      )}
+
+                      {imageInputMode === "url" && (
+                        <input
+                          type="url"
+                          value={imageUrl}
+                          onChange={(e) => setImageUrl(e.target.value)}
+                          placeholder="https://images.unsplash.com/photo-..."
+                          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                        />
+                      )}
+
+                      {imageInputMode === "presets" && (
+                        <div className="flex gap-2 flex-wrap">
+                          {SAMPLE_PRESETS.map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => setImageUrl(preset.url)}
+                              className="flex items-center gap-2 border border-border rounded-lg p-1.5 pr-3 hover:border-brand-500 hover:bg-brand-50/50 transition-all text-xs font-medium text-ink"
+                            >
+                              <img src={preset.url} alt={preset.label} className="w-7 h-7 rounded object-cover" />
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -238,7 +404,7 @@ export default function ManufacturerProducts() {
                     <label className="text-sm font-semibold text-ink-2">Price (₹) *</label>
                     <input 
                       type="number" 
-                      value={price} onChange={(e) => setPrice(e.target.value)}
+                      value={price} onChange={(e) => { setModalError(""); setPrice(e.target.value); }}
                       className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
                       placeholder="0.00"
                     />
@@ -247,10 +413,20 @@ export default function ManufacturerProducts() {
                     <label className="text-sm font-semibold text-ink-2">Unit</label>
                     <input 
                       type="text" 
-                      value={unit} onChange={(e) => setUnit(e.target.value)}
+                      value={unit} onChange={(e) => { setModalError(""); setUnit(e.target.value); }}
                       className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
-                      placeholder="piece, kg, set"
+                      placeholder="e.g. piece, kg, set"
+                      list="unit-suggestions"
                     />
+                    <datalist id="unit-suggestions">
+                      <option value="piece" />
+                      <option value="pair" />
+                      <option value="set" />
+                      <option value="kg" />
+                      <option value="meter" />
+                      <option value="box" />
+                      <option value="dozen" />
+                    </datalist>
                   </div>
                 </div>
 
@@ -258,7 +434,7 @@ export default function ManufacturerProducts() {
                   <label className="text-sm font-semibold text-ink-2">Minimum Order Quantity (MOQ) *</label>
                   <input 
                     type="number" 
-                    value={minOrderQuantity} onChange={(e) => setMinOrderQuantity(e.target.value)}
+                    value={minOrderQuantity} onChange={(e) => { setModalError(""); setMinOrderQuantity(e.target.value); }}
                     className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
                     placeholder="e.g. 50"
                   />
@@ -267,7 +443,7 @@ export default function ManufacturerProducts() {
 
               <div className="p-5 border-t border-border bg-surface flex gap-3 justify-end">
                 <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button variant="primary" onClick={handleSave} disabled={saving || !title || !price || !minOrderQuantity}>
+                <Button variant="primary" onClick={handleSave} disabled={saving}>
                   {saving ? "Saving..." : "Save Product"}
                 </Button>
               </div>

@@ -14,6 +14,9 @@ import RequestSample from "./pages/RequestSample";
 import ManufacturerDashboard from "./pages/ManufacturerDashboard";
 import ManufacturerOrders from "./pages/ManufacturerOrders";
 import ManufacturerProducts from "./pages/ManufacturerProducts";
+import ManufacturerReviews from "./pages/ManufacturerReviews";
+import ManufacturerAnalytics from "./pages/ManufacturerAnalytics";
+import ManufacturerVerification from "./pages/ManufacturerVerification";
 import AdminDashboard from "./pages/AdminDashboard";
 import Packaging from "./pages/Packaging";
 import OrdersPage from "./pages/OrdersPage";
@@ -257,6 +260,7 @@ export default function App() {
           {/* Buyer dashboard */}
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['BUYER']}><BuyerDashboard /></ProtectedRoute>} />
           <Route path="/requirements" element={<ProtectedRoute allowedRoles={['BUYER']}><RequirementsPage /></ProtectedRoute>} />
+          <Route path="/quotes" element={<ProtectedRoute allowedRoles={['BUYER']}><Navigate to="/requirements" replace /></ProtectedRoute>} />
           <Route path="/quotes/:rfqId" element={<ProtectedRoute allowedRoles={['BUYER']}><QuoteComparison /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute allowedRoles={['BUYER']}><OrdersPage /></ProtectedRoute>} />
           <Route path="/orders/:orderId" element={<ProtectedRoute allowedRoles={['BUYER']}><OrderDetailTracker /></ProtectedRoute>} />
@@ -265,6 +269,7 @@ export default function App() {
           <Route path="/post-requirement" element={<ProtectedRoute allowedRoles={['BUYER']}><PostRequirement /></ProtectedRoute>} />
           <Route path="/business-kit" element={<ProtectedRoute allowedRoles={['BUYER']}><BusinessKitBuilder /></ProtectedRoute>} />
           <Route path="/payment/:orderId" element={<ProtectedRoute allowedRoles={['BUYER']}><PaymentPage /></ProtectedRoute>} />
+          <Route path="/reviews" element={<ProtectedRoute allowedRoles={['BUYER']}><Navigate to="/orders" replace /></ProtectedRoute>} />
           <Route path="/reviews/:orderId" element={<ProtectedRoute allowedRoles={['BUYER']}><ReviewsPage /></ProtectedRoute>} />
           <Route path="/samples/request/:productId" element={<ProtectedRoute allowedRoles={['BUYER']}><RequestSample /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute allowedRoles={['BUYER', 'MANUFACTURER']}><NotificationsPage /></ProtectedRoute>} />
@@ -276,10 +281,14 @@ export default function App() {
           <Route path="/mfr/products" element={<ProtectedRoute allowedRoles={['MANUFACTURER']}><ManufacturerProducts /></ProtectedRoute>} />
           <Route path="/mfr/messages" element={<ProtectedRoute allowedRoles={['MANUFACTURER']}><Messages /></ProtectedRoute>} />
           <Route path="/mfr/settings" element={<ProtectedRoute allowedRoles={['MANUFACTURER']}><SettingsPage /></ProtectedRoute>} />
+          <Route path="/mfr/reviews" element={<ProtectedRoute allowedRoles={['MANUFACTURER']}><ManufacturerReviews /></ProtectedRoute>} />
+          <Route path="/mfr/analytics" element={<ProtectedRoute allowedRoles={['MANUFACTURER']}><ManufacturerAnalytics /></ProtectedRoute>} />
+          <Route path="/mfr/verification" element={<ProtectedRoute allowedRoles={['MANUFACTURER']}><ManufacturerVerification /></ProtectedRoute>} />
           <Route path="/mfr/:section" element={<ProtectedRoute allowedRoles={['MANUFACTURER']}><ManufacturerPortalRoute /></ProtectedRoute>} />
 
           {/* Admin */}
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['ADMIN']}><SettingsPage /></ProtectedRoute>} />
           <Route path="/admin/:section" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminPortalRoute /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFoundPage />} />

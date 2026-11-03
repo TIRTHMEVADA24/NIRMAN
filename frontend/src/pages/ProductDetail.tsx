@@ -4,6 +4,7 @@ import { MapPin, Clock, ChevronRight, MessageSquare, Star, CheckCircle } from "l
 import Navbar from "../components/Navbar";
 import { VerifiedBadge, MoqBadge, StarRating, Button, Card } from "../components/ui";
 import api from "../api/client";
+import { parseImageList, DEFAULT_PRODUCT_FALLBACK } from "../utils/image";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -38,7 +39,7 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-[#FAFAFA]">
         <Navbar />
-        <div className="py-16 text-center">Loading product...</div>
+        <div className="py-24 text-center text-ink-3">Loading product...</div>
       </div>
     );
   }
@@ -47,29 +48,19 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-[#FAFAFA]">
         <Navbar />
-        <div className="py-16 text-center text-red-600">{error || "Product not found"}</div>
+        <div className="py-24 text-center text-red-600 font-medium">{error || "Product not found"}</div>
       </div>
     );
   }
 
-  let imgs = ['https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80&w=500'];
-  if (Array.isArray(product.images) && product.images.length > 0) {
-    imgs = product.images;
-  } else if (typeof product.images === 'string' && product.images.length > 0) {
-    try {
-      const parsed = JSON.parse(product.images);
-      imgs = Array.isArray(parsed) && parsed.length > 0 ? parsed : [product.images];
-    } catch(e) {
-      imgs = [product.images];
-    }
-  }
+  const imgs = parseImageList(product.images);
   
   const manufacturer = product.manufacturer;
   const isVerified = manufacturer?.manufacturerProfile?.verificationStatus === 'VERIFIED';
   const location = manufacturer?.manufacturerProfile?.city || 'India';
   const rating = manufacturer?.manufacturerProfile?.rating || 0;
   
-  // Fake specs for now since they are not in the schema
+  // Specs
   const specs = [
     { label: "Material", value: "Standard" },
     { label: "Unit", value: product.unit },
@@ -81,7 +72,7 @@ export default function ProductDetail() {
       <Navbar />
 
       {/* Breadcrumb */}
-      <div className="border-b border-[#E5E7EB] bg-white">
+      <div className="border-b border-[#E5E7EB] bg-white mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 text-xs text-[#6B7280]">
           <Link to="/discover" className="hover:text-[#4F46E5]">Products</Link>
           <ChevronRight size={12} />
@@ -104,13 +95,29 @@ export default function ProductDetail() {
                     onClick={() => setSelectedImg(i)}
                     className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${selectedImg === i ? "border-[#4F46E5]" : "border-transparent"}`}
                   >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img
+                      src={img}
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = DEFAULT_PRODUCT_FALLBACK;
+                      }}
+                      className="w-full h-full object-cover"
+                    />
                   </button>
                 ))}
               </div>
               {/* Main image */}
               <div className="aspect-square rounded-2xl overflow-hidden bg-[#F3F4F6]">
-                <img src={imgs[selectedImg]} alt={product.title} className="w-full h-full object-cover" />
+                <img
+                  src={imgs[selectedImg] || imgs[0] || DEFAULT_PRODUCT_FALLBACK}
+                  alt={product.title}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = DEFAULT_PRODUCT_FALLBACK;
+                  }}
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
 
@@ -173,7 +180,7 @@ export default function ProductDetail() {
                 <InfoRow
                   icon={<CheckCircle size={14} className="text-[#059669]" />}
                   label="Sample available"
-                  value="Yes — request below" // Assuming sample available for now
+                  value="Yes — request below"
                 />
                 <InfoRow
                   icon={<CheckCircle size={14} className="text-[#4F46E5]" />}

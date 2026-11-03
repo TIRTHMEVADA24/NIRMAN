@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Search, Factory, FileText, MessageSquare,
   ShoppingBag, Package2, Star, Bell, Settings, ChevronRight,
   BarChart3, Shield, Users, ClipboardList, CreditCard,
-  Layers, Box, PackageCheck, FlaskConical,
+  Layers, Box, PackageCheck, FlaskConical, LogOut,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
@@ -56,7 +56,7 @@ const adminNav = [
 
 export default function Sidebar({ type = "buyer" }: { type?: "buyer" | "manufacturer" | "admin" }) {
   const loc = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const nav = type === "buyer" ? buyerNav : type === "manufacturer" ? manufacturerNav : adminNav;
   const label = type === "buyer" ? "Buyer Portal" : type === "manufacturer" ? "Manufacturer Portal" : "Admin Panel";
 
@@ -98,19 +98,32 @@ export default function Sidebar({ type = "buyer" }: { type?: "buyer" | "manufact
         })}
       </nav>
 
-      {/* Profile Section */}
-      <div className="p-4 border-t border-border bg-surface/30">
-        <Link to={type === "buyer" ? "/settings" : type === "manufacturer" ? "/mfr/settings" : "/admin/settings"} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white border border-transparent hover:border-border transition-all group">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-100 to-brand-200 border border-brand-300 flex items-center justify-center text-brand-700 text-xs font-bold shadow-sm">
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-ink truncate group-hover:text-brand-600 transition-colors">
-              {displayName}
-            </p>
-            <p className="text-[11px] font-semibold text-ink-3 capitalize tracking-wide">{type}</p>
-          </div>
-        </Link>
+      {/* Profile & Logout Section */}
+      <div className="p-4 border-t border-border bg-surface/30 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            to={type === "buyer" ? "/settings" : type === "manufacturer" ? "/mfr/settings" : "/admin/settings"}
+            className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white border border-transparent hover:border-border transition-all group flex-1 min-w-0"
+          >
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-100 to-brand-200 border border-brand-300 flex items-center justify-center text-brand-700 text-xs font-bold shadow-sm shrink-0">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-ink truncate group-hover:text-brand-600 transition-colors">
+                {displayName}
+              </p>
+              <p className="text-[11px] font-semibold text-ink-3 capitalize tracking-wide">{type}</p>
+            </div>
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            title="Log Out"
+            className="p-2 text-ink-3 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors shrink-0 cursor-pointer"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
       </div>
     </aside>
   );

@@ -1,16 +1,19 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getHomePath } from "../contexts/AuthContext";
 import { ArrowRight, ShoppingBag, Factory, Eye, EyeOff, Check } from "lucide-react";
 import { Button, Input } from "../components/ui";
 import api from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 
 function AuthShell({ children, title, subtitle }: { children: React.ReactNode; title: string; subtitle?: string }) {
+  const { user } = useAuth();
+  const homePath = getHomePath(user);
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex">
       {/* Left panel */}
       <div className="hidden lg:flex w-96 bg-[#111827] flex-col p-10 justify-between shrink-0">
-        <Link to="/" className="font-display font-bold text-white text-xl">
+        <Link to={homePath} className="font-display font-bold text-white text-xl">
           Nirmaan<span className="text-brand-500">.</span>
         </Link>
         <div>
@@ -33,7 +36,7 @@ function AuthShell({ children, title, subtitle }: { children: React.ReactNode; t
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
           <div className="mb-8">
-            <Link to="/" className="lg:hidden font-display font-bold text-[#111827] text-xl block mb-6">
+            <Link to={homePath} className="lg:hidden font-display font-bold text-[#111827] text-xl block mb-6">
               Nirmaan<span className="text-brand-500">.</span>
             </Link>
             <h1 className="font-display text-2xl font-bold text-[#111827] mb-1">{title}</h1>
@@ -46,10 +49,93 @@ function AuthShell({ children, title, subtitle }: { children: React.ReactNode; t
   );
 }
 
+function formatApiError(err: any, fallback: string): string {
+  if (err.response?.data?.details && Array.isArray(err.response.data.details) && err.response.data.details.length > 0) {
+    return err.response.data.details.map((d: any) => d.message).join(". ");
+  }
+  if (err.response?.data?.message) {
+    return err.response.data.message;
+  }
+  if (err.code === "ERR_NETWORK" || !err.response) {
+    return "Cannot connect to backend server. Please make sure the backend is running on port 5000.";
+  }
+  return err.message || fallback;
+}
+
+function checkPasswordCriteria(password: string) {
+  return {
+    minLength: password.length >= 8,
+    hasUpper: /[A-Z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecial: /[^A-Za-z0-9]/.test(password),
+  };
+}
+
+function validatePasswordInput(password: string): string | null {
+  if (!password) {
+    return "Please enter a password";
+  }
+  const criteria = checkPasswordCriteria(password);
+  const missing: string[] = [];
+  if (!criteria.minLength) missing.push("at least 8 characters");
+  if (!criteria.hasUpper) missing.push("one capital letter (A-Z)");
+  if (!criteria.hasNumber) missing.push("one number (0-9)");
+  if (!criteria.hasSpecial) missing.push("one special character (!@#$%...)");
+
+  if (missing.length > 0) {
+    return `Password must contain ${missing.join(", ")}`;
+  }
+  return null;
+}
+
+function PasswordRequirements({ password }: { password: string }) {
+  if (!password) return null;
+  const criteria = checkPasswordCriteria(password);
+  const items = [
+    { label: "At least 8 characters", met: criteria.minLength },
+    { label: "At least 1 capital letter (A-Z)", met: criteria.hasUpper },
+    { label: "At least 1 number (0-9)", met: criteria.hasNumber },
+    { label: "At least 1 special char (!@#$...)", met: criteria.hasSpecial },
+  ];
+
+  return (
+    <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg p-3 text-xs space-y-1.5 mt-1.5">
+      <p className="font-medium text-[#4B5563]">Password requirements:</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        {items.map((item, idx) => (
+          <div
+            key={idx}
+            className={`flex items-center gap-1.5 transition-colors ${
+              item.met ? "text-emerald-700 font-medium" : "text-[#6B7280]"
+            }`}
+          >
+            <div
+              className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-bold ${
+                item.met ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-500"
+              }`}
+            >
+              {item.met ? "✓" : "•"}
+            </div>
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { user, login, loading: authLoading } = useAuth();
   const [showPw, setShowPw] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role === 'MANUFACTURER') navigate('/mfr/dashboard', { replace: true });
+      else if (user.role === 'ADMIN') navigate('/admin', { replace: true });
+      else navigate('/dashboard', { replace: true });
+    }
+  }, [user, authLoading, navigate]);
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,10 +143,19 @@ export function Login() {
   const [error, setError] = useState("");
 
   const handleLogin = async () => {
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password");
+      return;
+    }
+
     try {
       setError("");
       setLoading(true);
-      const res = await api.post("/auth/login", { email, password });
+      const res = await api.post("/auth/login", { email: email.trim(), password });
       if (res.data.success) {
         login(res.data.data.token, res.data.data.user);
         if (res.data.data.user.role === 'MANUFACTURER') {
@@ -72,7 +167,7 @@ export function Login() {
         }
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to login. Please check your credentials.");
+      setError(formatApiError(err, "Failed to login. Please check your credentials."));
     } finally {
       setLoading(false);
     }
@@ -136,7 +231,17 @@ export function Login() {
 }
 
 export function Register() {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [role, setRole] = useState<"buyer" | "manufacturer" | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role === 'MANUFACTURER') navigate('/mfr/dashboard', { replace: true });
+      else if (user.role === 'ADMIN') navigate('/admin', { replace: true });
+      else navigate('/dashboard', { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   if (role === null) {
     return (
@@ -203,13 +308,28 @@ function BuyerOnboarding({ onBack }: { onBack: () => void }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPw, setShowPw] = useState(false);
 
   const handleRegister = async () => {
+    if (!formData.email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    const pwError = validatePasswordInput(formData.password);
+    if (pwError) {
+      setError(pwError);
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
       const res = await api.post("/auth/register", {
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password,
         name: formData.name,
         companyName: formData.companyName,
@@ -224,7 +344,7 @@ function BuyerOnboarding({ onBack }: { onBack: () => void }) {
         navigate("/dashboard");
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Registration failed");
+      setError(formatApiError(err, "Registration failed"));
     } finally {
       setLoading(false);
     }
@@ -291,7 +411,26 @@ function BuyerOnboarding({ onBack }: { onBack: () => void }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-[#374151]">Password</label>
-            <input type="password" placeholder="Create a strong password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full border border-[#E5E7EB] bg-white rounded-lg text-sm px-4 py-2.5 focus:ring-2 focus:ring-brand-500" />
+            <div className="relative">
+              <input
+                type={showPw ? "text" : "password"}
+                placeholder="Create a strong password"
+                value={formData.password}
+                onChange={e => {
+                  setError("");
+                  setFormData({...formData, password: e.target.value});
+                }}
+                className="w-full border border-[#E5E7EB] bg-white rounded-lg text-sm px-4 py-2.5 pr-10 focus:ring-2 focus:ring-brand-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#374151]"
+              >
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <PasswordRequirements password={formData.password} />
           </div>
 
           <div className="bg-[#F0FDF4] border border-[#A7F3D0] rounded-xl p-4 text-sm text-[#065F46] mt-2">
@@ -327,13 +466,28 @@ function ManufacturerOnboarding({ onBack }: { onBack: () => void }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPw, setShowPw] = useState(false);
 
   const handleRegister = async () => {
+    if (!formData.email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    const pwError = validatePasswordInput(formData.password);
+    if (pwError) {
+      setError(pwError);
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
       const res = await api.post("/auth/register", {
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password,
         name: formData.name,
         companyName: formData.factoryName,
@@ -348,7 +502,7 @@ function ManufacturerOnboarding({ onBack }: { onBack: () => void }) {
         setStep(3); // Go to verification pending screen
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Registration failed");
+      setError(formatApiError(err, "Registration failed"));
     } finally {
       setLoading(false);
     }
@@ -402,7 +556,26 @@ function ManufacturerOnboarding({ onBack }: { onBack: () => void }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-[#374151]">Password</label>
-            <input type="password" placeholder="Create a strong password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full border border-[#E5E7EB] bg-white rounded-lg text-sm px-4 py-2.5 focus:ring-2 focus:ring-brand-500" />
+            <div className="relative">
+              <input
+                type={showPw ? "text" : "password"}
+                placeholder="Create a strong password"
+                value={formData.password}
+                onChange={e => {
+                  setError("");
+                  setFormData({...formData, password: e.target.value});
+                }}
+                className="w-full border border-[#E5E7EB] bg-white rounded-lg text-sm px-4 py-2.5 pr-10 focus:ring-2 focus:ring-brand-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#374151]"
+              >
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <PasswordRequirements password={formData.password} />
           </div>
           
           <Button variant="primary" size="lg" className="w-full" disabled={loading} onClick={handleRegister}>

@@ -4,7 +4,8 @@ import {
   TrendingDown, Layers, FlaskConical, Play
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import Navbar from "../components/Navbar";
+import Navbar, { getHomePath } from "../components/Navbar";
+import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui";
 import { motion, useAnimation, useInView } from "framer-motion";
 
@@ -41,6 +42,8 @@ const features = [
 ];
 
 export default function Landing() {
+  const { user } = useAuth();
+  const homePath = getHomePath(user);
   const staggerContainer = {
     hidden: { opacity: 0 },
     show: {
@@ -90,9 +93,9 @@ export default function Landing() {
             </motion.p>
             
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center gap-5 w-full sm:w-auto">
-              <Link to="/post-requirement" className="w-full sm:w-auto">
+              <Link to={user ? homePath : "/post-requirement"} className="w-full sm:w-auto">
                 <Button variant="primary" size="lg" className="w-full sm:w-auto px-8 py-4 text-base group">
-                  Start Sourcing Free 
+                  {user ? "Go to Dashboard" : "Start Sourcing Free"} 
                   <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
@@ -353,9 +356,9 @@ export default function Landing() {
             transition={{ delay: 0.2 }}
             className="flex flex-col sm:flex-row gap-5 justify-center"
           >
-            <Link to="/register">
+            <Link to={user ? homePath : "/register"}>
               <Button variant="primary" size="lg" className="w-full sm:w-auto px-10 py-4 shadow-xl shadow-brand-500/30 text-base">
-                Start Sourcing Free
+                {user ? "Open Dashboard" : "Start Sourcing Free"}
               </Button>
             </Link>
             <Link to="/manufacturers">
