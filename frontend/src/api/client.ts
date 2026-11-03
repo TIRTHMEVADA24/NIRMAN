@@ -46,7 +46,7 @@ api.interceptors.response.use(
     const method = (config?.method || 'get').toLowerCase();
 
     // Check if error is network / 404 / 405 / 500 error where fallback can save the user experience
-    const isOfflineOrNotFound = !error.response || error.code === 'ERR_NETWORK' || [404, 405, 500, 502, 503].includes(error.response.status);
+    const isOfflineOrNotFound = !error.response || error.code === 'ERR_NETWORK' || [404, 405, 500, 502, 503].includes(error.response?.status);
 
     if (isOfflineOrNotFound && config) {
       try {
@@ -56,25 +56,39 @@ api.interceptors.response.use(
           const email = (body.email || '').toLowerCase().trim();
           const name = body.name || email.split('@')[0];
           const role = body.role || 'BUYER';
+          const password = body.password || '';
 
-          // Check if user exists in Supabase
+          // Reject if email is a standard demo account
+          const demoEmails = ['buyer@brand.com', 'buyer@d2c.com', 'mfr@factory.com', 'admin@nirmaan.com'];
+          if (demoEmails.includes(email)) {
+            return Promise.reject({
+              response: {
+                status: 400,
+                data: {
+                  success: false,
+                  message: 'This email is already registered. Please log in instead.'
+                }
+              }
+            });
+          }
+
+          // Check if user already exists in Supabase database
           const checkRes = await axios.get(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}`, { headers: supabaseHeaders });
           if (checkRes.data && checkRes.data.length > 0) {
-            const existingUser = checkRes.data[0];
-            const token = 'jwt-live-' + btoa(JSON.stringify({ id: existingUser.id, email: existingUser.email, role: existingUser.role }));
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(existingUser));
-            return {
-              data: {
-                success: true,
-                message: 'Account active',
-                data: { user: existingUser, token }
+            return Promise.reject({
+              response: {
+                status: 400,
+                data: {
+                  success: false,
+                  message: 'This email is already registered. Please log in instead.'
+                }
               }
-            };
+            });
           }
 
           const userId = 'usr-' + Date.now();
           const now = new Date().toISOString();
+          const passwordHash = password ? ('b64$' + btoa(password)) : 'scrypt$hash';
 
           // Insert into users
           const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/users`, {
@@ -84,7 +98,7 @@ api.interceptors.response.use(
             role,
             companyName: body.companyName || null,
             phone: body.phone || null,
-            passwordHash: 'scrypt$hash',
+            passwordHash,
             isVerified: true,
             updatedAt: now
           }, {
@@ -131,6 +145,7 @@ api.interceptors.response.use(
         if (url.includes('/auth/login') && method === 'post') {
           const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
           const email = (body.email || '').toLowerCase().trim();
+          const password = body.password || '';
 
           // Query Supabase for user
           const userRes = await axios.get(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=*,buyerProfile:buyer_profiles(*),manufacturerProfile:manufacturer_profiles(*)`, {
@@ -139,6 +154,27 @@ api.interceptors.response.use(
 
           if (userRes.data && userRes.data.length > 0) {
             const user = userRes.data[0];
+
+            // Normalize nested profiles if array
+            if (Array.isArray(user.buyerProfile)) user.buyerProfile = user.buyerProfile[0] || null;
+            if (Array.isArray(user.manufacturerProfile)) user.manufacturerProfile = user.manufacturerProfile[0] || null;
+
+            // Password check if stored with b64$
+            if (user.passwordHash && user.passwordHash.startsWith('b64$')) {
+              const expected = user.passwordHash.replace('b64$', '');
+              if (btoa(password) !== expected) {
+                return Promise.reject({
+                  response: {
+                    status: 401,
+                    data: {
+                      success: false,
+                      message: 'Incorrect password. Please try again.'
+                    }
+                  }
+                });
+              }
+            }
+
             const token = 'jwt-live-' + btoa(JSON.stringify({ id: user.id, email: user.email, role: user.role }));
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(user));
@@ -181,6 +217,17 @@ api.interceptors.response.use(
             localStorage.setItem('user', JSON.stringify(demoMfr));
             return { data: { success: true, message: 'Login successful', data: { user: demoMfr, token } } };
           }
+
+          // Email not found at all
+          return Promise.reject({
+            response: {
+              status: 401,
+              data: {
+                success: false,
+                message: 'No account found with this email. Please sign up first.'
+              }
+            }
+          });
         }
 
         // 3. Fallback: GET /auth/me
