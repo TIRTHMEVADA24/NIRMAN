@@ -57,6 +57,10 @@ function formatApiError(err: any, fallback: string): string {
     return err.response.data.message;
   }
   if (err.code === "ERR_NETWORK" || !err.response) {
+    const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (!isLocal) {
+      return "Cannot connect to backend server. Please deploy your backend service (e.g. on Render) and set VITE_API_BASE_URL in your Vercel Project Settings.";
+    }
     return "Cannot connect to backend server. Please make sure the backend is running on port 5000.";
   }
   return err.message || fallback;
