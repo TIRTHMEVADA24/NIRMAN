@@ -469,6 +469,7 @@ function ManufacturerOnboarding({ onBack }: { onBack: () => void }) {
   });
 
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
   const [error, setError] = useState("");
   const [showPw, setShowPw] = useState(false);
 
@@ -503,13 +504,35 @@ function ManufacturerOnboarding({ onBack }: { onBack: () => void }) {
 
       if (res.data.success) {
         login(res.data.data.token, res.data.data.user);
-        setStep(3); // Go to verification pending screen
+        setRegistered(true);
       }
     } catch (err: any) {
       setError(formatApiError(err, "Registration failed"));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoToStep3 = () => {
+    if (!formData.email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      setError("Please enter a valid email address (e.g. name@company.com)");
+      return;
+    }
+    if (!formData.phone.trim()) {
+      setError("Please enter your phone number");
+      return;
+    }
+    const pwError = validatePasswordInput(formData.password);
+    if (pwError) {
+      setError(pwError);
+      return;
+    }
+    setError("");
+    setStep(3);
   };
 
   return (
@@ -582,13 +605,52 @@ function ManufacturerOnboarding({ onBack }: { onBack: () => void }) {
             <PasswordRequirements password={formData.password} />
           </div>
           
-          <Button variant="primary" size="lg" className="w-full" disabled={loading} onClick={handleRegister}>
-            {loading ? "Registering..." : "Submit Registration"} <ArrowRight size={16} />
+          <Button variant="primary" size="lg" className="w-full mt-1" onClick={handleGoToStep3}>
+            Continue to Confirmation <ArrowRight size={16} />
           </Button>
           <button onClick={() => { setError(""); setStep(1); }} className="text-sm text-center text-[#6B7280] hover:text-[#374151]">← Go back</button>
         </div>
       )}
-      {step === 3 && (
+      {step === 3 && !registered && (
+        <div className="flex flex-col gap-4">
+          <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 flex flex-col gap-2.5 text-xs text-[#334155]">
+            <p className="font-semibold text-sm text-[#0F172A] pb-2 border-b border-[#E2E8F0]">Confirm Your Profile Details</p>
+            <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
+              <span className="text-[#64748B]">Business / Factory:</span>
+              <span className="font-medium text-[#0F172A]">{formData.factoryName}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
+              <span className="text-[#64748B]">Contact Person:</span>
+              <span className="font-medium text-[#0F172A]">{formData.name}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
+              <span className="text-[#64748B]">Location:</span>
+              <span className="font-medium text-[#0F172A]">{formData.city || "Ahmedabad, Gujarat"}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
+              <span className="text-[#64748B]">Email:</span>
+              <span className="font-medium text-[#0F172A]">{formData.email}</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-[#64748B]">Phone:</span>
+              <span className="font-medium text-[#0F172A]">{formData.phone}</span>
+            </div>
+          </div>
+
+          <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-xl p-3 text-xs text-[#065F46] flex items-center gap-2">
+            <Check size={16} className="text-[#059669] shrink-0" />
+            <span>Ready to submit. Your factory will receive matching RFQ requests after verification.</span>
+          </div>
+
+          <Button variant="primary" size="lg" className="w-full" disabled={loading} onClick={handleRegister}>
+            {loading ? "Registering..." : "Submit Registration"} <ArrowRight size={16} />
+          </Button>
+          <button onClick={() => { setError(""); setStep(2); }} className="text-sm text-center text-[#6B7280] hover:text-[#374151]">
+            ← Edit credentials
+          </button>
+        </div>
+      )}
+      {step === 3 && registered && (
         <div className="flex flex-col gap-4">
           <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl p-4 text-sm text-[#92400E]">
             <p className="font-semibold mb-1">Registration Successful</p>
@@ -596,11 +658,8 @@ function ManufacturerOnboarding({ onBack }: { onBack: () => void }) {
           </div>
           <div className="flex flex-col gap-3">
             {["Business information", "Contact information", "Account created", "Pending verification"].map((item, i) => (
-              <div key={item} className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${i < 3 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F3F4F6] text-[#9CA3AF]"}`}>
-                  {i < 3 ? <Check size={11} /> : "○"}
-                </div>
-                <span className="text-sm text-[#374151]">{item}</span>
+              <div key={item} className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${i < 3 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F3F4F6] text-[#9CA3AF]"}`}>
+                {i < 3 ? <Check size={11} /> : "○"}
               </div>
             ))}
           </div>
