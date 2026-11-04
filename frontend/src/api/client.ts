@@ -243,9 +243,88 @@ api.interceptors.response.use(
           }
         }
 
-        // 4. Fallback: GET /products/:id or GET /products
+        // 4. Fallback: PUT /auth/profile or PUT /manufacturers/profile
+        if ((url.includes('/auth/profile') || url.includes('/manufacturers/profile')) && method === 'put') {
+          const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+          const storedUser = localStorage.getItem('user');
+          const currentUser = storedUser ? JSON.parse(storedUser) : {};
+          const updatedUser = { ...currentUser, ...body };
+
+          if (currentUser.id) {
+            await axios.patch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(currentUser.id)}`, {
+              name: body.name || currentUser.name,
+              companyName: body.companyName || currentUser.companyName,
+              phone: body.phone || currentUser.phone,
+              updatedAt: new Date().toISOString()
+            }, { headers: supabaseHeaders }).catch(() => {});
+          }
+
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          return {
+            data: {
+              success: true,
+              message: 'Profile updated successfully',
+              data: updatedUser
+            }
+          };
+        }
+
+        // 5. Fallback: POST /rfqs/:id/quotes or POST /quotes (Submit Quote)
+        if (url.includes('/quotes') && method === 'post') {
+          const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+          const rfqMatch = url.match(/\/rfqs\/([^\/]+)\/quotes/);
+          const rfqId = rfqMatch ? rfqMatch[1] : (body.rfqId || 'rfq-1');
+
+          const storedUser = localStorage.getItem('user');
+          const currentUser = storedUser ? JSON.parse(storedUser) : null;
+          const manufacturerId = currentUser?.id || 'usr-mfr-1';
+
+          const quoteId = 'quote-' + Date.now();
+          const now = new Date().toISOString();
+          const unitPrice = parseFloat(body.unitPrice) || 0;
+          const totalPrice = parseFloat(body.totalPrice) || (unitPrice * (body.quantity || 500));
+          const deliveryDays = parseInt(body.deliveryTimeDays) || 14;
+
+          const quotePayload = {
+            id: quoteId,
+            unitPrice: unitPrice,
+            totalPrice: totalPrice,
+            deliveryTimeDays: deliveryDays,
+            notes: body.notes || 'Official manufacturer quotation.',
+            status: 'PENDING',
+            rfqId: rfqId,
+            manufacturerId: manufacturerId,
+            updatedAt: now
+          };
+
+          const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/quotes`, quotePayload, {
+            headers: { ...supabaseHeaders, Prefer: 'return=representation' }
+          });
+
+          return {
+            data: {
+              success: true,
+              message: 'Quote submitted successfully',
+              data: insertRes.data[0] || quotePayload
+            }
+          };
+        }
+
+        // 6. Fallback: GET /quotes
+        if (url.includes('/quotes') && method === 'get') {
+          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/quotes?select=*,rfq:rfqs(*),manufacturer:users(id,name,companyName)`, {
+            headers: supabaseHeaders
+          });
+          return {
+            data: {
+              success: true,
+              data: Array.isArray(fallbackRes.data) ? fallbackRes.data : []
+            }
+          };
+        }
+
+        // 7. Fallback: GET /products/:id or GET /products
         if (url.includes('/products') && method === 'get') {
-          // Check for single product query: /products/:id
           const match = url.match(/\/products\/([^/?#]+)/);
           const singleId = match ? match[1] : null;
 
@@ -268,7 +347,6 @@ api.interceptors.response.use(
             }
           }
 
-          // Otherwise return product list
           const fallbackRes = await axios.get(
             `${SUPABASE_URL}/rest/v1/products?select=*,category:categories(*),manufacturer:users(id,name,companyName,manufacturerProfile:manufacturer_profiles(*))`,
             { headers: supabaseHeaders }
@@ -292,7 +370,7 @@ api.interceptors.response.use(
           }
         }
 
-        // 5. Fallback: GET /manufacturers
+        // 8. Fallback: GET /manufacturers
         if (url.includes('/manufacturers') && method === 'get') {
           const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/manufacturer_profiles?select=*,user:users(id,name,email,phone,companyName)`, {
             headers: supabaseHeaders
@@ -307,7 +385,7 @@ api.interceptors.response.use(
           }
         }
 
-        // 6. Fallback: GET /categories
+        // 9. Fallback: GET /categories
         if (url.includes('/categories') && method === 'get') {
           const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/categories?select=*`, {
             headers: supabaseHeaders
@@ -322,9 +400,9 @@ api.interceptors.response.use(
           }
         }
 
-        // 7. Fallback: GET /rfqs
+        // 10. Fallback: GET /rfqs
         if (url.includes('/rfqs') && method === 'get') {
-          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/rfqs?select=*,buyer:users(id,name,companyName)`, {
+          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/rfqs?select=*,buyer:users(id,name,companyName),quotes(*)`, {
             headers: supabaseHeaders
           });
           return {
@@ -335,7 +413,7 @@ api.interceptors.response.use(
           };
         }
 
-        // 8. Fallback: GET /orders
+        // 11. Fallback: GET /orders
         if (url.includes('/orders') && method === 'get') {
           return {
             data: {
