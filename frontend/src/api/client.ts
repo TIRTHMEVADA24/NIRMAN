@@ -310,7 +310,77 @@ api.interceptors.response.use(
           };
         }
 
-        // 6. Fallback: GET /quotes
+        // 6. Fallback: POST /rfqs (Publish Requirement)
+        if (url.includes('/rfqs') && method === 'post' && !url.includes('/quotes')) {
+          const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+          const storedUser = localStorage.getItem('user');
+          const currentUser = storedUser ? JSON.parse(storedUser) : null;
+          const buyerId = currentUser?.id || 'usr-buyer-1';
+
+          const rfqId = 'rfq-' + Date.now();
+          const now = new Date().toISOString();
+          const rfqPayload = {
+            id: rfqId,
+            title: body.title || 'Custom Sourcing Request',
+            description: body.description || '',
+            quantity: Number(body.quantity) || 100,
+            unit: body.unit || 'piece',
+            targetPrice: body.targetPrice ? Number(body.targetPrice) : null,
+            status: 'OPEN',
+            buyerId: buyerId,
+            categoryId: body.categoryId || 'cat-1',
+            updatedAt: now
+          };
+
+          const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/rfqs`, rfqPayload, {
+            headers: { ...supabaseHeaders, Prefer: 'return=representation' }
+          });
+
+          return {
+            data: {
+              success: true,
+              message: 'Requirement posted successfully',
+              data: insertRes.data[0] || rfqPayload
+            }
+          };
+        }
+
+        // 7. Fallback: POST /samples (Request Sample)
+        if (url.includes('/samples') && method === 'post') {
+          const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+          const storedUser = localStorage.getItem('user');
+          const currentUser = storedUser ? JSON.parse(storedUser) : null;
+          const buyerId = currentUser?.id || 'usr-buyer-1';
+
+          const sampleId = 'sample-' + Date.now();
+          const now = new Date().toISOString();
+          const samplePayload = {
+            id: sampleId,
+            quantity: Number(body.quantity) || 1,
+            price: Number(body.price) || 250,
+            shippingCost: Number(body.shippingCost) || 120,
+            status: 'REQUESTED',
+            notes: body.notes || 'Buyer sample request',
+            buyerId: buyerId,
+            manufacturerId: body.manufacturerId || 'usr-mfr-1',
+            productId: body.productId || null,
+            updatedAt: now
+          };
+
+          const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/sample_requests`, samplePayload, {
+            headers: { ...supabaseHeaders, Prefer: 'return=representation' }
+          });
+
+          return {
+            data: {
+              success: true,
+              message: 'Sample request submitted successfully',
+              data: insertRes.data[0] || samplePayload
+            }
+          };
+        }
+
+        // 8. Fallback: GET /quotes
         if (url.includes('/quotes') && method === 'get') {
           const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/quotes?select=*,rfq:rfqs(*),manufacturer:users(id,name,companyName)`, {
             headers: supabaseHeaders
@@ -323,7 +393,7 @@ api.interceptors.response.use(
           };
         }
 
-        // 7. Fallback: GET /products/:id or GET /products
+        // 9. Fallback: GET /products/:id or GET /products
         if (url.includes('/products') && method === 'get') {
           const match = url.match(/\/products\/([^/?#]+)/);
           const singleId = match ? match[1] : null;
@@ -370,7 +440,7 @@ api.interceptors.response.use(
           }
         }
 
-        // 8. Fallback: GET /manufacturers
+        // 10. Fallback: GET /manufacturers
         if (url.includes('/manufacturers') && method === 'get') {
           const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/manufacturer_profiles?select=*,user:users(id,name,email,phone,companyName)`, {
             headers: supabaseHeaders
@@ -385,7 +455,7 @@ api.interceptors.response.use(
           }
         }
 
-        // 9. Fallback: GET /categories
+        // 11. Fallback: GET /categories
         if (url.includes('/categories') && method === 'get') {
           const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/categories?select=*`, {
             headers: supabaseHeaders
@@ -400,9 +470,9 @@ api.interceptors.response.use(
           }
         }
 
-        // 10. Fallback: GET /rfqs
+        // 12. Fallback: GET /rfqs
         if (url.includes('/rfqs') && method === 'get') {
-          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/rfqs?select=*,buyer:users(id,name,companyName),quotes(*)`, {
+          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/rfqs?select=*,buyer:users(id,name,companyName),quotes(*)&order=createdAt.desc`, {
             headers: supabaseHeaders
           });
           return {
@@ -413,12 +483,28 @@ api.interceptors.response.use(
           };
         }
 
-        // 11. Fallback: GET /orders
-        if (url.includes('/orders') && method === 'get') {
+        // 13. Fallback: GET /samples
+        if (url.includes('/samples') && method === 'get') {
+          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/sample_requests?select=*,product:products(*),manufacturer:users(id,name,companyName)&order=createdAt.desc`, {
+            headers: supabaseHeaders
+          });
           return {
             data: {
               success: true,
-              data: []
+              data: Array.isArray(fallbackRes.data) ? fallbackRes.data : []
+            }
+          };
+        }
+
+        // 14. Fallback: GET /orders
+        if (url.includes('/orders') && method === 'get') {
+          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/orders?select=*,product:products(*),buyer:users(id,name,companyName),manufacturer:users(id,name,companyName)&order=createdAt.desc`, {
+            headers: supabaseHeaders
+          });
+          return {
+            data: {
+              success: true,
+              data: Array.isArray(fallbackRes.data) ? fallbackRes.data : []
             }
           };
         }
