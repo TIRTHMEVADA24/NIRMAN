@@ -11,6 +11,7 @@ function getNormalizedBaseUrl(): string {
 
 const api = axios.create({
   baseURL: getNormalizedBaseUrl(),
+  timeout: 2500,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -500,23 +501,21 @@ api.interceptors.response.use(
             localStorage.setItem('nirman_local_quotes', JSON.stringify(localQuotes));
           } catch (e) {}
 
-          try {
-            await axios.post(`${SUPABASE_URL}/rest/v1/quotes`, {
-              id: quoteId,
-              unitPrice: unitPrice,
-              totalPrice: totalPrice,
-              deliveryTimeDays: deliveryDays,
-              notes: quotePayload.notes,
-              status: 'PENDING',
-              rfqId: rfqId,
-              manufacturerId: manufacturerId,
-              updatedAt: now
-            }, {
-              headers: { ...supabaseHeaders, Prefer: 'return=representation' }
-            });
-          } catch (sbErr) {
-            console.warn('Supabase quote insert offline, saved locally');
-          }
+          // Background sync to Supabase without blocking UI
+          axios.post(`${SUPABASE_URL}/rest/v1/quotes`, {
+            id: quoteId,
+            unitPrice: unitPrice,
+            totalPrice: totalPrice,
+            deliveryTimeDays: deliveryDays,
+            notes: quotePayload.notes,
+            status: 'PENDING',
+            rfqId: rfqId,
+            manufacturerId: manufacturerId,
+            updatedAt: now
+          }, {
+            headers: { ...supabaseHeaders, Prefer: 'return=representation' },
+            timeout: 2500
+          }).catch(() => {});
 
           return {
             data: {
@@ -558,27 +557,22 @@ api.interceptors.response.use(
             localStorage.setItem('nirman_local_rfqs', JSON.stringify(localRfqs));
           } catch (e) {}
 
-          try {
-            const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/rfqs`, {
-              id: rfqId,
-              title: rfqPayload.title,
-              description: rfqPayload.description,
-              quantity: rfqPayload.quantity,
-              unit: rfqPayload.unit,
-              targetPrice: rfqPayload.targetPrice,
-              status: 'OPEN',
-              buyerId: buyerId,
-              categoryId: rfqPayload.categoryId,
-              updatedAt: now
-            }, {
-              headers: { ...supabaseHeaders, Prefer: 'return=representation' }
-            });
-            if (insertRes.data && insertRes.data[0]) {
-              rfqPayload.id = insertRes.data[0].id;
-            }
-          } catch (sbErr) {
-            console.warn('Supabase RFQ insert offline, saved locally');
-          }
+          // Background sync to Supabase without blocking UI
+          axios.post(`${SUPABASE_URL}/rest/v1/rfqs`, {
+            id: rfqId,
+            title: rfqPayload.title,
+            description: rfqPayload.description,
+            quantity: rfqPayload.quantity,
+            unit: rfqPayload.unit,
+            targetPrice: rfqPayload.targetPrice,
+            status: 'OPEN',
+            buyerId: buyerId,
+            categoryId: rfqPayload.categoryId,
+            updatedAt: now
+          }, {
+            headers: { ...supabaseHeaders, Prefer: 'return=representation' },
+            timeout: 2500
+          }).catch(() => {});
 
           return {
             data: {
@@ -691,7 +685,7 @@ api.interceptors.response.use(
           try {
             const fallbackRes = await axios.get(
               `${SUPABASE_URL}/rest/v1/products?select=*,category:categories(*),manufacturer:users(id,name,companyName,manufacturerProfile:manufacturer_profiles(*))`,
-              { headers: supabaseHeaders }
+              { headers: supabaseHeaders, timeout: 2000 }
             );
             if (fallbackRes.data && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
               const products = fallbackRes.data.map((p: any) => {
@@ -774,21 +768,29 @@ api.interceptors.response.use(
 
         // 12. Fallback: GET /rfqs
         if (url.includes('/rfqs') && method === 'get') {
+          let localRfqs: any[] = [];
+          try {
+            localRfqs = JSON.parse(localStorage.getItem('nirman_local_rfqs') || '[]');
+          } catch (e) {}
+
           try {
             const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/rfqs?select=*,buyer:users(id,name,companyName),quotes(*)&order=createdAt.desc`, {
-              headers: supabaseHeaders
+              headers: supabaseHeaders,
+              timeout: 2000
             });
+            const dbRfqs = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
+            const merged = [...localRfqs, ...dbRfqs.filter((d: any) => !localRfqs.some((l: any) => l.id === d.id))];
             return {
               data: {
                 success: true,
-                data: Array.isArray(fallbackRes.data) ? fallbackRes.data : []
+                data: merged
               }
             };
           } catch (e) {
             return {
               data: {
                 success: true,
-                data: []
+                data: localRfqs
               }
             };
           }
