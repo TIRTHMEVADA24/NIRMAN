@@ -489,18 +489,40 @@ api.interceptors.response.use(
             status: 'PENDING',
             rfqId: rfqId,
             manufacturerId: manufacturerId,
-            updatedAt: now
+            createdAt: now,
+            updatedAt: now,
+            manufacturer: currentUser || { id: manufacturerId, name: 'You (Manufacturer)', companyName: 'Your Factory' }
           };
 
-          const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/quotes`, quotePayload, {
-            headers: { ...supabaseHeaders, Prefer: 'return=representation' }
-          });
+          try {
+            const localQuotes = JSON.parse(localStorage.getItem('nirman_local_quotes') || '[]');
+            localQuotes.unshift(quotePayload);
+            localStorage.setItem('nirman_local_quotes', JSON.stringify(localQuotes));
+          } catch (e) {}
+
+          try {
+            await axios.post(`${SUPABASE_URL}/rest/v1/quotes`, {
+              id: quoteId,
+              unitPrice: unitPrice,
+              totalPrice: totalPrice,
+              deliveryTimeDays: deliveryDays,
+              notes: quotePayload.notes,
+              status: 'PENDING',
+              rfqId: rfqId,
+              manufacturerId: manufacturerId,
+              updatedAt: now
+            }, {
+              headers: { ...supabaseHeaders, Prefer: 'return=representation' }
+            });
+          } catch (sbErr) {
+            console.warn('Supabase quote insert offline, saved locally');
+          }
 
           return {
             data: {
               success: true,
               message: 'Quote submitted successfully',
-              data: insertRes.data[0] || quotePayload
+              data: quotePayload
             }
           };
         }
@@ -524,18 +546,45 @@ api.interceptors.response.use(
             status: 'OPEN',
             buyerId: buyerId,
             categoryId: body.categoryId || 'cat-1',
-            updatedAt: now
+            createdAt: now,
+            updatedAt: now,
+            buyer: currentUser || { id: buyerId, name: 'You (Buyer)', companyName: 'Your Brand' },
+            quotes: []
           };
 
-          const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/rfqs`, rfqPayload, {
-            headers: { ...supabaseHeaders, Prefer: 'return=representation' }
-          });
+          try {
+            const localRfqs = JSON.parse(localStorage.getItem('nirman_local_rfqs') || '[]');
+            localRfqs.unshift(rfqPayload);
+            localStorage.setItem('nirman_local_rfqs', JSON.stringify(localRfqs));
+          } catch (e) {}
+
+          try {
+            const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/rfqs`, {
+              id: rfqId,
+              title: rfqPayload.title,
+              description: rfqPayload.description,
+              quantity: rfqPayload.quantity,
+              unit: rfqPayload.unit,
+              targetPrice: rfqPayload.targetPrice,
+              status: 'OPEN',
+              buyerId: buyerId,
+              categoryId: rfqPayload.categoryId,
+              updatedAt: now
+            }, {
+              headers: { ...supabaseHeaders, Prefer: 'return=representation' }
+            });
+            if (insertRes.data && insertRes.data[0]) {
+              rfqPayload.id = insertRes.data[0].id;
+            }
+          } catch (sbErr) {
+            console.warn('Supabase RFQ insert offline, saved locally');
+          }
 
           return {
             data: {
               success: true,
               message: 'Requirement posted successfully',
-              data: insertRes.data[0] || rfqPayload
+              data: rfqPayload
             }
           };
         }
@@ -559,33 +608,60 @@ api.interceptors.response.use(
             buyerId: buyerId,
             manufacturerId: body.manufacturerId || 'usr-mfr-1',
             productId: body.productId || null,
+            createdAt: now,
             updatedAt: now
           };
 
-          const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/sample_requests`, samplePayload, {
-            headers: { ...supabaseHeaders, Prefer: 'return=representation' }
-          });
+          try {
+            const localSamples = JSON.parse(localStorage.getItem('nirman_local_samples') || '[]');
+            localSamples.unshift(samplePayload);
+            localStorage.setItem('nirman_local_samples', JSON.stringify(localSamples));
+          } catch (e) {}
+
+          try {
+            await axios.post(`${SUPABASE_URL}/rest/v1/sample_requests`, samplePayload, {
+              headers: { ...supabaseHeaders, Prefer: 'return=representation' }
+            });
+          } catch (sbErr) {
+            console.warn('Supabase sample request offline, saved locally');
+          }
 
           return {
             data: {
               success: true,
               message: 'Sample request submitted successfully',
-              data: insertRes.data[0] || samplePayload
+              data: samplePayload
             }
           };
         }
 
         // 8. Fallback: GET /quotes
         if (url.includes('/quotes') && method === 'get') {
-          const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/quotes?select=*,rfq:rfqs(*),manufacturer:users(id,name,companyName)`, {
-            headers: supabaseHeaders
-          });
-          return {
-            data: {
-              success: true,
-              data: Array.isArray(fallbackRes.data) ? fallbackRes.data : []
-            }
-          };
+          let localQuotes = [];
+          try {
+            localQuotes = JSON.parse(localStorage.getItem('nirman_local_quotes') || '[]');
+          } catch (e) {}
+
+          try {
+            const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/quotes?select=*,rfq:rfqs(*),manufacturer:users(id,name,companyName)`, {
+              headers: supabaseHeaders
+            });
+            const dbQuotes = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
+            const merged = [...localQuotes, ...dbQuotes.filter(d => !localQuotes.some(l => l.id === d.id))];
+            return {
+              data: {
+                success: true,
+                data: merged
+              }
+            };
+          } catch (e) {
+            return {
+              data: {
+                success: true,
+                data: localQuotes
+              }
+            };
+          }
         }
 
         // 9. Fallback: GET /products/:id or GET /products
