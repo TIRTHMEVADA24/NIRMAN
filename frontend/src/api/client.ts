@@ -39,6 +39,55 @@ const supabaseHeaders = {
 };
 
 
+const DEFAULT_RFQS = [
+  {
+    id: 'rfq-demo-1',
+    title: 'Custom Engraved 925 Silver Rings',
+    description: 'Need 500 pcs custom engraved minimalist silver rings with custom brand pouch packaging.',
+    quantity: 500,
+    unit: 'piece',
+    targetPrice: 100,
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+    quotes: [
+      {
+        id: 'quote-1',
+        unitPrice: 95,
+        totalPrice: 47500,
+        deliveryTimeDays: 12,
+        status: 'PENDING',
+        manufacturer: { name: 'Amit Patel', companyName: 'Artisan Metals Co.' }
+      }
+    ]
+  },
+  {
+    id: 'rfq-demo-2',
+    title: 'Minimalist Gold-Plated Pendants',
+    description: '18k gold plated brass pendants for upcoming summer collection.',
+    quantity: 200,
+    unit: 'piece',
+    targetPrice: 120,
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+    quotes: []
+  }
+];
+
+const DEFAULT_QUOTES = [
+  {
+    id: 'quote-demo-1',
+    rfqId: 'rfq-demo-1',
+    unitPrice: 95,
+    totalPrice: 47500,
+    deliveryTimeDays: 12,
+    notes: 'We can deliver high-precision diamond engraving with custom laser hallmark.',
+    status: 'PENDING',
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    manufacturer: { name: 'Amit Patel', companyName: 'Artisan Metals Co.' },
+    rfq: { title: 'Custom Engraved 925 Silver Rings', quantity: 500, targetPrice: 100 }
+  }
+];
+
 const DEFAULT_CATEGORIES = [
   { id: 'cat-1', name: 'Earrings', slug: 'earrings', description: 'All types of earrings' },
   { id: 'cat-2', name: 'Necklaces', slug: 'necklaces', description: 'Pendants and chains' },
@@ -631,17 +680,19 @@ api.interceptors.response.use(
 
         // 8. Fallback: GET /quotes
         if (url.includes('/quotes') && method === 'get') {
-          let localQuotes = [];
+          let localQuotes: any[] = [];
           try {
             localQuotes = JSON.parse(localStorage.getItem('nirman_local_quotes') || '[]');
           } catch (e) {}
+          const baseQuotes = [...localQuotes, ...DEFAULT_QUOTES.filter(d => !localQuotes.some(l => l.id === d.id))];
 
           try {
             const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/quotes?select=*,rfq:rfqs(*),manufacturer:users(id,name,companyName)`, {
-              headers: supabaseHeaders
+              headers: supabaseHeaders,
+              timeout: 2000
             });
-            const dbQuotes = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
-            const merged = [...localQuotes, ...dbQuotes.filter(d => !localQuotes.some(l => l.id === d.id))];
+            const dbQuotes = Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0 ? fallbackRes.data : [];
+            const merged = [...baseQuotes, ...dbQuotes.filter((d: any) => !baseQuotes.some((l: any) => l.id === d.id))];
             return {
               data: {
                 success: true,
@@ -652,7 +703,7 @@ api.interceptors.response.use(
             return {
               data: {
                 success: true,
-                data: localQuotes
+                data: baseQuotes
               }
             };
           }
@@ -766,20 +817,34 @@ api.interceptors.response.use(
           };
         }
 
-        // 12. Fallback: GET /rfqs
+        // 12. Fallback: GET /rfqs/:id or GET /rfqs
         if (url.includes('/rfqs') && method === 'get') {
           let localRfqs: any[] = [];
           try {
             localRfqs = JSON.parse(localStorage.getItem('nirman_local_rfqs') || '[]');
           } catch (e) {}
+          const baseList = [...localRfqs, ...DEFAULT_RFQS.filter(d => !localRfqs.some(l => l.id === d.id))];
+
+          const match = url.match(/\/rfqs\/([^/?#]+)/);
+          const singleRfqId = match && match[1] !== 'rfqs' ? match[1] : null;
+
+          if (singleRfqId) {
+            const found = baseList.find(r => r.id === singleRfqId) || baseList[0];
+            return {
+              data: {
+                success: true,
+                data: found
+              }
+            };
+          }
 
           try {
             const fallbackRes = await axios.get(`${SUPABASE_URL}/rest/v1/rfqs?select=*,buyer:users(id,name,companyName),quotes(*)&order=createdAt.desc`, {
               headers: supabaseHeaders,
               timeout: 2000
             });
-            const dbRfqs = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
-            const merged = [...localRfqs, ...dbRfqs.filter((d: any) => !localRfqs.some((l: any) => l.id === d.id))];
+            const dbRfqs = Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0 ? fallbackRes.data : [];
+            const merged = [...baseList, ...dbRfqs.filter((d: any) => !baseList.some((l: any) => l.id === d.id))];
             return {
               data: {
                 success: true,
@@ -790,7 +855,7 @@ api.interceptors.response.use(
             return {
               data: {
                 success: true,
-                data: localRfqs
+                data: baseList
               }
             };
           }
