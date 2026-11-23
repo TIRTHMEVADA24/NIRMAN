@@ -27,6 +27,8 @@ import {
   ReviewsPage,
 } from "./pages/AdditionalFlows";
 import SettingsPage from "./pages/SettingsPage";
+import BuyerQuotesPage from "./pages/BuyerQuotesPage";
+import BuyerReviewsOverviewPage from "./pages/BuyerReviewsOverviewPage";
 import { ForgotPassword, HowItWorks, PortalPage } from "./pages/PortalPages";
 import {
   DashboardNavbar
@@ -260,7 +262,7 @@ export default function App() {
           {/* Buyer dashboard */}
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['BUYER']}><BuyerDashboard /></ProtectedRoute>} />
           <Route path="/requirements" element={<ProtectedRoute allowedRoles={['BUYER']}><RequirementsPage /></ProtectedRoute>} />
-          <Route path="/quotes" element={<ProtectedRoute allowedRoles={['BUYER']}><Navigate to="/requirements" replace /></ProtectedRoute>} />
+          <Route path="/quotes" element={<ProtectedRoute allowedRoles={['BUYER']}><BuyerQuotesPage /></ProtectedRoute>} />
           <Route path="/quotes/:rfqId" element={<ProtectedRoute allowedRoles={['BUYER']}><QuoteComparison /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute allowedRoles={['BUYER']}><OrdersPage /></ProtectedRoute>} />
           <Route path="/orders/:orderId" element={<ProtectedRoute allowedRoles={['BUYER']}><OrderDetailTracker /></ProtectedRoute>} />
@@ -269,7 +271,7 @@ export default function App() {
           <Route path="/post-requirement" element={<ProtectedRoute allowedRoles={['BUYER']}><PostRequirement /></ProtectedRoute>} />
           <Route path="/business-kit" element={<ProtectedRoute allowedRoles={['BUYER']}><BusinessKitBuilder /></ProtectedRoute>} />
           <Route path="/payment/:orderId" element={<ProtectedRoute allowedRoles={['BUYER']}><PaymentPage /></ProtectedRoute>} />
-          <Route path="/reviews" element={<ProtectedRoute allowedRoles={['BUYER']}><Navigate to="/orders" replace /></ProtectedRoute>} />
+          <Route path="/reviews" element={<ProtectedRoute allowedRoles={['BUYER']}><BuyerReviewsOverviewPage /></ProtectedRoute>} />
           <Route path="/reviews/:orderId" element={<ProtectedRoute allowedRoles={['BUYER']}><ReviewsPage /></ProtectedRoute>} />
           <Route path="/samples/request/:productId" element={<ProtectedRoute allowedRoles={['BUYER']}><RequestSample /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute allowedRoles={['BUYER', 'MANUFACTURER']}><NotificationsPage /></ProtectedRoute>} />
