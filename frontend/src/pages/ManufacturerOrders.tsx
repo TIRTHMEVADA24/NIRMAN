@@ -93,7 +93,7 @@ export default function ManufacturerOrders() {
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                            transition={{ type: "spring" as const, stiffness: 300, damping: 24 }}
                           >
                             <Card className="p-4 cursor-grab active:cursor-grabbing hover:border-brand-500/50 shadow-sm">
                               <div className="flex justify-between items-start mb-2">

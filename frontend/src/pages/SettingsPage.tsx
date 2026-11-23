@@ -171,9 +171,9 @@ export default function SettingsPage() {
 
   return (
     <div className="h-screen flex flex-col bg-surface">
-      <DashboardNavbar userType={user?.role?.toLowerCase() || 'buyer'} />
+      <DashboardNavbar userType={(user?.role?.toLowerCase() as 'buyer' | 'manufacturer' | 'admin') || 'buyer'} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar type={user?.role?.toLowerCase() || 'buyer'} />
+        <Sidebar type={(user?.role?.toLowerCase() as 'buyer' | 'manufacturer' | 'admin') || 'buyer'} />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-4xl mx-auto">
             

@@ -74,14 +74,16 @@ export function Button({
   onClick,
   type = "button",
   disabled,
+  ...props
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "outline" | "ghost" | "danger" | "glass";
   size?: "sm" | "md" | "lg";
   className?: string;
-  onClick?: () => void;
+  onClick?: (e?: any) => void;
   type?: "button" | "submit";
   disabled?: boolean;
+  [key: string]: any;
 }) {
   const base = "inline-flex items-center justify-center gap-2 font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none outline-none relative overflow-hidden group";
   const sizes = { sm: "text-xs px-4 py-2 rounded-lg", md: "text-sm px-6 py-2.5 rounded-xl", lg: "text-base px-8 py-3.5 rounded-xl" };
@@ -104,8 +106,8 @@ export function Button({
   );
 }
 
-export function Input({ label, placeholder, type = "text", value, onChange, icon, className = "" }: {
-  label?: string; placeholder?: string; type?: string; value?: string; onChange?: (v: string) => void; icon?: ReactNode; className?: string;
+export function Input({ label, placeholder, type = "text", value, onChange, icon, className = "", name, disabled, ...props }: {
+  label?: string; placeholder?: string; type?: string; value?: string; onChange?: (v: string) => void; icon?: ReactNode; className?: string; name?: string; disabled?: boolean; [key: string]: any;
 }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
@@ -113,18 +115,21 @@ export function Input({ label, placeholder, type = "text", value, onChange, icon
       <div className="relative group">
         {icon && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3 group-focus-within:text-brand-500 transition-colors duration-200">{icon}</span>}
         <input
+          name={name}
+          disabled={disabled}
           type={type}
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
           className={`w-full border border-border bg-white rounded-xl text-sm font-medium text-ink placeholder:text-ink-3/50 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all duration-300 shadow-sm ${icon ? "pl-11 pr-4 py-3" : "px-4 py-3"}`}
+          {...props}
         />
       </div>
     </div>
   );
 }
 
-export function Card({ children, className = "", onClick, hover = false }: { children: ReactNode; className?: string; onClick?: () => void; hover?: boolean }) {
+export function Card({ children, className = "", onClick, hover = false, ...props }: { children: ReactNode; className?: string; onClick?: (e?: any) => void; hover?: boolean; [key: string]: any; }) {
   const hoverClasses = hover ? "hover:-translate-y-1 hover:shadow-xl hover:border-brand-200 cursor-pointer" : "";
   return (
     <div onClick={onClick} className={`bg-white border border-border/80 rounded-2xl shadow-sm transition-all duration-300 ${hoverClasses} ${className}`}>

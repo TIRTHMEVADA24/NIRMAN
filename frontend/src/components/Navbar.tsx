@@ -68,7 +68,7 @@ export default function Navbar() {
                   <motion.div
                     layoutId="navbar-indicator"
                     className="absolute inset-0 bg-brand-50 rounded-lg z-0"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    transition={{ type: "spring" as const, bounce: 0.2, duration: 0.6 }}
                   />
                 )}
                 {!isActive && (

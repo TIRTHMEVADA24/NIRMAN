@@ -54,7 +54,7 @@ export default function Landing() {
 
   const fadeUp = {
     hidden: { opacity: 0, y: 30 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+    show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
   };
 
   return (
@@ -111,7 +111,7 @@ export default function Landing() {
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.6, type: "spring" }}
+            transition={{ duration: 1, delay: 0.6, type: "spring" as const }}
             className="mt-20 max-w-5xl mx-auto relative hidden md:block"
           >
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/90 z-10 top-1/2 pointer-events-none"></div>
@@ -140,7 +140,7 @@ export default function Landing() {
                   key={step.label}
                   initial={{ opacity: 0, scale: 0.5 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.8 + step.delay, type: "spring", stiffness: 200 }}
+                  transition={{ delay: 0.8 + step.delay, type: "spring" as const, stiffness: 200 }}
                   className="relative z-10 flex flex-col items-center gap-4 group cursor-default"
                 >
                   <div className="w-16 h-16 rounded-2xl bg-white border border-border/80 shadow-lg flex items-center justify-center text-3xl group-hover:-translate-y-2 group-hover:shadow-brand transition-all duration-300">
@@ -201,7 +201,7 @@ export default function Landing() {
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.8, type: "spring" }}
+              transition={{ duration: 0.8, type: "spring" as const }}
               className="bg-ink-2 rounded-3xl p-10 md:p-12 border border-ink-3/20 relative overflow-hidden shadow-2xl"
             >
               <div className="absolute -top-32 -right-32 w-96 h-96 bg-brand-500 blur-[120px] opacity-20 rounded-full pointer-events-none" />
@@ -252,7 +252,7 @@ export default function Landing() {
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.8, type: "spring" }}
+              transition={{ duration: 0.8, type: "spring" as const }}
               className="order-2 lg:order-1 relative"
             >
               <div className="absolute inset-0 bg-brand-500 blur-[100px] opacity-[0.08] rounded-full pointer-events-none" />
@@ -270,7 +270,7 @@ export default function Landing() {
                     initial={{ opacity: 0, y: 100, rotate: 0 }}
                     whileInView={{ opacity: 1, y: i * 15 - 30, rotate: item.rotate }}
                     viewport={{ once: true, margin: "-100px" }}
-                    transition={{ delay: i * 0.15, type: "spring", stiffness: 100, damping: 15 }}
+                    transition={{ delay: i * 0.15, type: "spring" as const, stiffness: 100, damping: 15 }}
                     className="absolute bg-white rounded-2xl border border-border/80 shadow-2xl p-6 w-[320px] glass"
                     style={{ zIndex: item.z }}
                   >

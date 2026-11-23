@@ -87,7 +87,7 @@ export default function Sidebar({ type = "buyer" }: { type?: "buyer" | "manufact
                 <motion.div
                   layoutId="sidebar-indicator"
                   className="absolute inset-0 bg-brand-50 rounded-xl z-0"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  transition={{ type: "spring" as const, bounce: 0.2, duration: 0.6 }}
                 />
               )}
               {!active && (

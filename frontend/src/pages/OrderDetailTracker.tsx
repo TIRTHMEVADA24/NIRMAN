@@ -112,7 +112,7 @@ export default function OrderDetailTracker() {
                           className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 mb-3 ${isCompleted ? 'bg-brand-500 text-white' : 'bg-muted text-ink-3'} ${isActive ? 'ring-4 ring-brand-500/20' : ''}`}
                           initial={{ scale: 0.8 }}
                           animate={{ scale: isActive ? 1.1 : 1 }}
-                          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                          transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
                         >
                           <Icon size={24} />
                         </motion.div>
