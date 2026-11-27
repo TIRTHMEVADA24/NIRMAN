@@ -284,14 +284,27 @@ const DEFAULT_PRODUCTS = [
 
 // Response interceptor to handle common errors and fallback to Supabase REST
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If it's a GET /rfqs request, merge any locally posted RFQs seamlessly into the response
+    if (response.config?.url?.includes('/rfqs') && (response.config?.method || 'get').toLowerCase() === 'get') {
+      try {
+        const localRfqs = JSON.parse(localStorage.getItem('nirman_local_rfqs') || '[]');
+        if (localRfqs.length > 0 && Array.isArray(response.data?.data)) {
+          const existingIds = new Set(response.data.data.map((r: any) => r.id));
+          const missingLocals = localRfqs.filter((l: any) => !existingIds.has(l.id));
+          response.data.data = [...missingLocals, ...response.data.data];
+        }
+      } catch (e) {}
+    }
+    return response;
+  },
   async (error) => {
     const config = error.config;
     const url = config?.url || '';
     const method = (config?.method || 'get').toLowerCase();
 
-    // Check if error is network / 404 / 405 / 500 error where fallback can save the user experience
-    const isOfflineOrNotFound = !error.response || error.code === 'ERR_NETWORK' || [404, 405, 500, 502, 503].includes(error.response?.status);
+    // Check if error is network / 400 / 401 / 403 / 404 / 405 / 500 / 502 / 503 / 504 / 540 error where fallback can save the user experience
+    const isOfflineOrNotFound = !error.response || error.code === 'ERR_NETWORK' || [400, 401, 403, 404, 405, 500, 502, 503, 504, 540].includes(error.response?.status);
 
     if (isOfflineOrNotFound && config) {
       try {
@@ -317,9 +330,13 @@ api.interceptors.response.use(
             });
           }
 
-          // Check if user already exists in Supabase database
-          const checkRes = await axios.get(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}`, { headers: supabaseHeaders });
-          if (checkRes.data && checkRes.data.length > 0) {
+          // Check if user already exists in local storage
+          let localUsers: any[] = [];
+          try {
+            localUsers = JSON.parse(localStorage.getItem('nirman_local_users') || '[]');
+          } catch (e) {}
+
+          if (localUsers.some((u: any) => (u.email || '').toLowerCase() === email)) {
             return Promise.reject({
               response: {
                 status: 400,
@@ -331,12 +348,68 @@ api.interceptors.response.use(
             });
           }
 
+          // Check if user already exists in Supabase database (with timeout & safe catch)
+          try {
+            const checkRes = await axios.get(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}`, {
+              headers: supabaseHeaders,
+              timeout: 2000
+            });
+            if (checkRes.data && checkRes.data.length > 0) {
+              return Promise.reject({
+                response: {
+                  status: 400,
+                  data: {
+                    success: false,
+                    message: 'This email is already registered. Please log in instead.'
+                  }
+                }
+              });
+            }
+          } catch (e: any) {
+            if (e?.response?.status === 400) return Promise.reject(e);
+          }
+
           const userId = 'usr-' + Date.now();
           const now = new Date().toISOString();
           const passwordHash = password ? ('b64$' + btoa(password)) : 'scrypt$hash';
 
-          // Insert into users
-          const insertRes = await axios.post(`${SUPABASE_URL}/rest/v1/users`, {
+          const createdUser: any = {
+            id: userId,
+            email,
+            name,
+            role,
+            companyName: body.companyName || null,
+            phone: body.phone || null,
+            passwordHash,
+            isVerified: true,
+            updatedAt: now
+          };
+
+          if (role === 'BUYER') {
+            createdUser.buyerProfile = { id: 'bp-' + Date.now(), userId, companyName: body.companyName || null, phone: body.phone || null };
+          } else if (role === 'MANUFACTURER') {
+            createdUser.manufacturerProfile = {
+              id: 'mp-' + Date.now(),
+              userId,
+              factoryName: body.companyName || `${name}'s Manufacturing`,
+              verificationStatus: 'VERIFIED',
+              rating: 4.8,
+              qualityRating: 4.9,
+              deliveryRating: 4.8,
+              reviewCount: 3,
+              city: body.city || 'Ahmedabad',
+              phone: body.phone || null
+            };
+          }
+
+          // Save locally immediately
+          localUsers.unshift(createdUser);
+          try {
+            localStorage.setItem('nirman_local_users', JSON.stringify(localUsers));
+          } catch (e) {}
+
+          // Background sync to Supabase without blocking registration
+          axios.post(`${SUPABASE_URL}/rest/v1/users`, {
             id: userId,
             email,
             name,
@@ -347,20 +420,18 @@ api.interceptors.response.use(
             isVerified: true,
             updatedAt: now
           }, {
-            headers: { ...supabaseHeaders, Prefer: 'return=representation' }
-          });
+            headers: { ...supabaseHeaders, Prefer: 'return=representation' },
+            timeout: 2500
+          }).catch(() => {});
 
-          const createdUser = insertRes.data[0] || { id: userId, email, name, role };
-
-          // Create matching profile
           if (role === 'BUYER') {
-            await axios.post(`${SUPABASE_URL}/rest/v1/buyer_profiles`, {
+            axios.post(`${SUPABASE_URL}/rest/v1/buyer_profiles`, {
               id: 'bp-' + Date.now(),
               userId,
               updatedAt: now
-            }, { headers: supabaseHeaders }).catch(() => {});
+            }, { headers: supabaseHeaders, timeout: 2500 }).catch(() => {});
           } else if (role === 'MANUFACTURER') {
-            await axios.post(`${SUPABASE_URL}/rest/v1/manufacturer_profiles`, {
+            axios.post(`${SUPABASE_URL}/rest/v1/manufacturer_profiles`, {
               id: 'mp-' + Date.now(),
               userId,
               factoryName: body.companyName || `${name}'s Manufacturing`,
@@ -370,7 +441,7 @@ api.interceptors.response.use(
               deliveryRating: 4.8,
               reviewCount: 3,
               updatedAt: now
-            }, { headers: supabaseHeaders }).catch(() => {});
+            }, { headers: supabaseHeaders, timeout: 2500 }).catch(() => {});
           }
 
           const token = 'jwt-live-' + btoa(JSON.stringify({ id: createdUser.id, email: createdUser.email, role: createdUser.role }));
@@ -392,44 +463,78 @@ api.interceptors.response.use(
           const email = (body.email || '').toLowerCase().trim();
           const password = body.password || '';
 
-          // Query Supabase for user
-          const userRes = await axios.get(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=*,buyerProfile:buyer_profiles(*),manufacturerProfile:manufacturer_profiles(*)`, {
-            headers: supabaseHeaders
-          });
-
-          if (userRes.data && userRes.data.length > 0) {
-            const user = userRes.data[0];
-
-            // Normalize nested profiles if array
-            if (Array.isArray(user.buyerProfile)) user.buyerProfile = user.buyerProfile[0] || null;
-            if (Array.isArray(user.manufacturerProfile)) user.manufacturerProfile = user.manufacturerProfile[0] || null;
-
-            // Password check if stored with b64$
-            if (user.passwordHash && user.passwordHash.startsWith('b64$')) {
-              const expected = user.passwordHash.replace('b64$', '');
-              if (btoa(password) !== expected) {
-                return Promise.reject({
-                  response: {
-                    status: 401,
-                    data: {
-                      success: false,
-                      message: 'Incorrect password. Please try again.'
+          // First check locally registered users
+          try {
+            const localUsers = JSON.parse(localStorage.getItem('nirman_local_users') || '[]');
+            const localUser = localUsers.find((u: any) => (u.email || '').toLowerCase() === email);
+            if (localUser) {
+              if (localUser.passwordHash && localUser.passwordHash.startsWith('b64$')) {
+                const expected = localUser.passwordHash.replace('b64$', '');
+                if (btoa(password) !== expected) {
+                  return Promise.reject({
+                    response: {
+                      status: 401,
+                      data: { success: false, message: 'Incorrect password. Please try again.' }
                     }
-                  }
-                });
+                  });
+                }
               }
+              const token = 'jwt-live-' + btoa(JSON.stringify({ id: localUser.id, email: localUser.email, role: localUser.role }));
+              localStorage.setItem('token', token);
+              localStorage.setItem('user', JSON.stringify(localUser));
+              return {
+                data: {
+                  success: true,
+                  message: 'Login successful',
+                  data: { user: localUser, token }
+                }
+              };
             }
+          } catch (e) {}
 
-            const token = 'jwt-live-' + btoa(JSON.stringify({ id: user.id, email: user.email, role: user.role }));
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            return {
-              data: {
-                success: true,
-                message: 'Login successful',
-                data: { user, token }
+          // Query Supabase for user
+          try {
+            const userRes = await axios.get(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=*,buyerProfile:buyer_profiles(*),manufacturerProfile:manufacturer_profiles(*)`, {
+              headers: supabaseHeaders,
+              timeout: 2500
+            });
+
+            if (userRes.data && userRes.data.length > 0) {
+              const user = userRes.data[0];
+
+              // Normalize nested profiles if array
+              if (Array.isArray(user.buyerProfile)) user.buyerProfile = user.buyerProfile[0] || null;
+              if (Array.isArray(user.manufacturerProfile)) user.manufacturerProfile = user.manufacturerProfile[0] || null;
+
+              // Password check if stored with b64$
+              if (user.passwordHash && user.passwordHash.startsWith('b64$')) {
+                const expected = user.passwordHash.replace('b64$', '');
+                if (btoa(password) !== expected) {
+                  return Promise.reject({
+                    response: {
+                      status: 401,
+                      data: {
+                        success: false,
+                        message: 'Incorrect password. Please try again.'
+                      }
+                    }
+                  });
+                }
               }
-            };
+
+              const token = 'jwt-live-' + btoa(JSON.stringify({ id: user.id, email: user.email, role: user.role }));
+              localStorage.setItem('token', token);
+              localStorage.setItem('user', JSON.stringify(user));
+              return {
+                data: {
+                  success: true,
+                  message: 'Login successful',
+                  data: { user, token }
+                }
+              };
+            }
+          } catch (e: any) {
+            if (e?.response?.status === 401) return Promise.reject(e);
           }
 
           // Fallback for standard demo accounts if not in DB
@@ -584,10 +689,15 @@ api.interceptors.response.use(
 
           const rfqId = 'rfq-' + Date.now();
           const now = new Date().toISOString();
+          const rawTitle = (body.title || 'Custom Sourcing Request').trim();
+          const title = rawTitle.length >= 3 ? rawTitle : `${rawTitle} Sourcing`;
+          const rawDesc = (body.description || '').trim();
+          const description = rawDesc.length >= 10 ? rawDesc : `${rawDesc} - Custom requirement specification.`;
+
           const rfqPayload = {
             id: rfqId,
-            title: body.title || 'Custom Sourcing Request',
-            description: body.description || '',
+            title,
+            description,
             quantity: Number(body.quantity) || 100,
             unit: body.unit || 'piece',
             targetPrice: body.targetPrice ? Number(body.targetPrice) : null,

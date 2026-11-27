@@ -50,11 +50,24 @@ function RequirementsPage() {
       try {
         setLoading(true);
         const res = await api.get('/rfqs');
-        if (res.data.success) {
-          setRequirements(res.data.data);
+        let localRfqs: any[] = [];
+        try {
+          localRfqs = JSON.parse(localStorage.getItem('nirman_local_rfqs') || '[]');
+        } catch (e) {}
+
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          const existingIds = new Set(res.data.data.map((r: any) => r.id));
+          const missing = localRfqs.filter((l: any) => !existingIds.has(l.id));
+          setRequirements([...missing, ...res.data.data]);
+        } else {
+          setRequirements(localRfqs);
         }
       } catch (err) {
         console.error("Failed to fetch requirements", err);
+        try {
+          const localRfqs = JSON.parse(localStorage.getItem('nirman_local_rfqs') || '[]');
+          setRequirements(localRfqs);
+        } catch (e) {}
       } finally {
         setLoading(false);
       }
